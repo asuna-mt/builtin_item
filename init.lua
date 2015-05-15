@@ -132,10 +132,12 @@ core.register_entity(":__builtin:item", {
 		if self.tim < 0.1 then return end
 		self.tim = 0
 
-		-- If item drops into lava then destroy if enabled
 		local p = self.object:getpos()
+		-- If item drops below map limits then remove
+		if p.y <= -30912 then self.object:remove() return end
 		local nn = core.get_node_or_nil({x=p.x, y=p.y-0.5, z=p.z})
 		if nn and nn.name then nn=nn.name else return end
+		-- If item drops into lava then destroy if enabled
 		if destroy_item > 0 and minetest.get_item_group(nn, "lava") > 0 then
 			minetest.sound_play("builtin_item_lava", {pos = p, max_hear_distance = 6, gain = 0.5})
 			self.object:remove()
