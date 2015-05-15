@@ -133,10 +133,18 @@ core.register_entity(":__builtin:item", {
 		self.tim = 0
 
 		local p = self.object:getpos()
-		-- If item drops below map limits then remove
-		if p.y <= -30912 then self.object:remove() return end
 		local nn = core.get_node_or_nil({x=p.x, y=p.y-0.5, z=p.z})
-		if nn and nn.name then nn=nn.name else return end
+		local in_unloaded = (nn == nil)
+		if in_unloaded then
+			-- Don't infinetly fall into unloaded map
+			self.object:setvelocity({x = 0, y = 0, z = 0})
+			self.object:setacceleration({x = 0, y = 0, z = 0})
+			self.physical_state = false
+			self.object:set_properties({physical = false})
+			return
+		end
+		nn = nn.name
+
 		-- If item drops into lava then destroy if enabled
 		if destroy_item > 0 and minetest.get_item_group(nn, "lava") > 0 then
 			minetest.sound_play("builtin_item_lava", {pos = p, max_hear_distance = 6, gain = 0.5})
