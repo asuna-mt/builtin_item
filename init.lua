@@ -17,6 +17,8 @@ local time_to_live = tonumber(core.setting_get("item_entity_ttl")) or 180 -- 3 m
 
 local destroy_item = tonumber(core.setting_get("destroy_item")) or 1
 
+-- Particle effects when item removed
+
 local function add_effects(pos)
 	minetest.add_particlespawner({
 		amount = 1,
@@ -115,15 +117,62 @@ core.register_entity(":__builtin:item", {
 		self:set_item(self.itemstring)
 	end,
 
-	on_step = function(self, dtime)
+	try_merge_with = function(self, own_stack, object, obj)
+		local stack = ItemStack(obj.itemstring)
+		if own_stack:get_name() == stack:get_name() and stack:get_free_space() > 0 then
+			local overflow = false
+			local count = stack:get_count() + own_stack:get_count()
+			local max_count = stack:get_stack_max()
+			if count > max_count then
+				overflow = true
+				count = count - max_count
+			else
+				self.itemstring = ''
+			end
+			local pos = object:getpos()
+			pos.y = pos.y + (count - stack:get_count()) / max_count * 0.15
+			object:moveto(pos, false)
+			local s, c
+			local max_count = stack:get_stack_max()
+			local name = stack:get_name()
+			if not overflow then
+				obj.itemstring = name .. " " .. count
+				s = 0.2 + 0.1 * (count / max_count)
+				c = s
+				object:set_properties({
+					visual_size = {x = s, y = s},
+					collisionbox = {-c, -c, -c, c, c, c}
+				})
+				self.object:remove()
+				-- merging succeeded
+				return true
+			else
+				s = 0.4
+				c = 0.3
+				object:set_properties({
+					visual_size = {x = s, y = s},
+					collisionbox = {-c, -c, -c, c, c, c}
+				})
+				obj.itemstring = name .. " " .. max_count
+				s = 0.2 + 0.1 * (count / max_count)
+				c = s
+				self.object:set_properties({
+					visual_size = {x = s, y = s},
+					collisionbox = {-c, -c, -c, c, c, c}
+				})
+				self.itemstring = name .. " " .. count
+			end
+		end
+		-- merging didn't succeed
+		return false
+	end,
 
-		-- remove item after specific time
+	on_step = function(self, dtime)
 		self.age = self.age + dtime
 		if time_to_live > 0 and self.age > time_to_live then
-			local p = self.object:getpos()
 			self.itemstring = ''
+			add_effects(self.object:getpos())
 			self.object:remove()
-			add_effects(p)
 			return
 		end
 
@@ -133,7 +182,8 @@ core.register_entity(":__builtin:item", {
 		self.tim = 0
 
 		local p = self.object:getpos()
-		local nn = core.get_node_or_nil({x=p.x, y=p.y-0.5, z=p.z})
+		p.y = p.y - 0.5
+		local nn = core.get_node_or_nil(p)
 		local in_unloaded = (nn == nil)
 		if in_unloaded then
 			-- Don't infinetly fall into unloaded map
@@ -154,56 +204,16 @@ core.register_entity(":__builtin:item", {
 		end
 
 		-- If node is not registered or node is walkably solid and resting on nodebox
-		local v = self.object:getvelocity()
-		if not core.registered_nodes[nn] or core.registered_nodes[nn].walkable and v.y == 0 then
+		if not core.registered_nodes[nn] or core.registered_nodes[nn].walkable and self.object:getvelocity().y == 0 then
 			if self.physical_state then
 				local own_stack = ItemStack(self.object:get_luaentity().itemstring)
-				local obj, stack, pos, s, c, max_count, name, overflow, count
-				for _,object in ipairs(core.get_objects_inside_radius(p, 0.8)) do
-					obj = object:get_luaentity()
-					if obj and obj.name == "__builtin:item" and obj.physical_state == false then
-						stack = ItemStack(obj.itemstring)
-						if own_stack:get_name() == stack:get_name() and stack:get_free_space() > 0 then 
-							overflow = false
-							count = stack:get_count() + own_stack:get_count()
-							max_count = stack:get_stack_max()
-							if count>max_count then
-								overflow = true
-								count = count - max_count
-							else
-								self.itemstring = ''
-							end	
-							pos=object:getpos() 
-							pos.y = pos.y + (count - stack:get_count()) / max_count * 0.15
-							object:moveto(pos, false)
-							max_count = stack:get_stack_max()
-							name = stack:get_name()
-							if not overflow then
-								obj.itemstring = name.." "..count
-								s = 0.2 + 0.1 * (count / max_count)
-								c = s
-								object:set_properties({
-									visual_size = {x = s, y = s},
-									collisionbox = {-c, -c, -c, c, c, c}
-								})
-								self.object:remove()
-								return
-							else
-								s = 0.4
-								c = 0.3
-								object:set_properties({
-									visual_size = {x = s, y = s},
-									collisionbox = {-c, -c, -c, c, c, c}
-								})
-								obj.itemstring = name.." "..max_count
-								s = 0.2 + 0.1 * (count / max_count)
-								c = s
-								self.object:set_properties({
-									visual_size = {x = s, y = s},
-									collisionbox = {-c, -c, -c, c, c, c}
-								})
-								self.itemstring = name.." "..count
-							end
+				-- Merge with close entities of the same item
+				for _, object in ipairs(core.get_objects_inside_radius(p, 0.8)) do
+					local obj = object:get_luaentity()
+					if obj and obj.name == "__builtin:item"
+							and obj.physical_state == false then
+						if self:try_merge_with(own_stack, object, obj) then
+							return
 						end
 					end
 				end
