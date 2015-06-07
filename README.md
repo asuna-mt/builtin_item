@@ -1,26 +1,14 @@
-=== BUILTIN_ITEM MOD for MINETEST-C55 ===
-by PilzAdam and edited by TenPlus1
+item_entity.lua
+
+edited by TenPlus1
 
 Features:
-This mod adds some new features to the builtin items:
-- The items are destroyed by lava
-- The items are removed after 300 seconds or the time that is specified by
+- Items are destroyed by lava
+- Items are moved along by flowing water
+- Items are removed after 1200 seconds or the time that is specified by
    remove_items in minetest.conf (0 disables it)
+- Particle effects added
 
-How to install:
-Unzip the archive an place it in minetest-base-directory/mods/minetest/
-if you have a windows client or a linux run-in-place client. If you have
-a linux system-wide instalation place it in ~/.minetest/mods/minetest/.
-If you want to install this mod only in one world create the folder
-worldmods/ in your worlddirectory.
-For further information or help see:
-http://wiki.minetest.com/wiki/Installing_Mods
-
-License:
-WTFPL (see below)
-
-See also:
-http://minetest.net/
 
          DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
                     Version 2, December 2004

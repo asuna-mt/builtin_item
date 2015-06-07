@@ -176,15 +176,10 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		-- added for server use to stop lag when too many items
-		self.tim = (self.tim or 0) + dtime
-		if self.tim < 0.1 then return end
-		self.tim = 0
-
 		local p = self.object:getpos()
 		p.y = p.y - 0.5
-		local nn = core.get_node_or_nil(p)
-		local in_unloaded = (nn == nil)
+		local node = core.get_node_or_nil(p)
+		local in_unloaded = (node == nil)
 		if in_unloaded then
 			-- Don't infinetly fall into unloaded map
 			self.object:setvelocity({x = 0, y = 0, z = 0})
@@ -193,7 +188,7 @@ core.register_entity(":__builtin:item", {
 			self.object:set_properties({physical = false})
 			return
 		end
-		nn = nn.name
+		local nn = node.name
 
 		-- If item drops into lava then destroy if enabled
 		if destroy_item > 0 and minetest.get_item_group(nn, "lava") > 0 then
@@ -202,6 +197,41 @@ core.register_entity(":__builtin:item", {
 			add_effects(p)
 			return
 		end
+
+		p.y = p.y + 0.5
+
+		-- Flowing water pushes item along
+		local nod = minetest.get_node(p)
+		if minetest.registered_nodes[nod.name].liquidtype == "flowing" then
+
+			local pos = self.object:getpos() ; pos = vector.round(pos)
+			local p2 = node.param2 ; if p2 > 6 then p2 = 0 end
+			local v = self.object:getvelocity()
+
+			nod = minetest.get_node({x=pos.x+1, y=pos.y, z=pos.z})
+			if nod.name == "default:water_flowing" and nod.param2 < p2 then
+				self.object:setvelocity({x=0.8,y=v.y,z=0})
+			end
+
+			nod = minetest.get_node({x=pos.x-1, y=pos.y, z=pos.z})
+			if nod.name == "default:water_flowing" and nod.param2 < p2 then
+				self.object:setvelocity({x=-0.8,y=v.y,z=0})
+			end
+
+			nod = minetest.get_node({x=pos.x, y=pos.y, z=pos.z+1})
+			if nod.name == "default:water_flowing" and nod.param2 < p2 then
+				self.object:setvelocity({x=0,y=v.y,z=0.8})
+			end
+
+			nod = minetest.get_node({x=pos.x, y=pos.y, z=pos.z-1})
+			if nod.name == "default:water_flowing" and nod.param2 < p2 then
+				self.object:setvelocity({x=0,y=v.y,z=-0.8})
+			end
+
+			return
+		end
+
+		p.y = p.y - 0.5
 
 		-- If node is not registered or node is walkably solid and resting on nodebox
 		if not core.registered_nodes[nn] or core.registered_nodes[nn].walkable and self.object:getvelocity().y == 0 then
