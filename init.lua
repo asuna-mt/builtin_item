@@ -211,22 +211,26 @@ core.register_entity(":__builtin:item", {
 			local v = self.object:getvelocity()
 
 			nod = minetest.get_node({x=pos.x+1, y=pos.y, z=pos.z})
-			if nod.name == "default:water_flowing" and nod.param2 < p2 and nod.param2 < 7 then
+			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
+			and nod.param2 < p2 and nod.param2 < 7 then
 				v.x = 0.8
 			end
 
 			nod = minetest.get_node({x=pos.x-1, y=pos.y, z=pos.z})
-			if nod.name == "default:water_flowing" and nod.param2 < p2 and nod.param2 < 7 then
+			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
+			and nod.param2 < p2 and nod.param2 < 7 then
 				v.x = -0.8
 			end
 
 			nod = minetest.get_node({x=pos.x, y=pos.y, z=pos.z+1})
-			if nod.name == "default:water_flowing" and nod.param2 < p2 and nod.param2 < 7 then
+			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
+			and nod.param2 < p2 and nod.param2 < 7 then
 				v.z = 0.8
 			end
 
 			nod = minetest.get_node({x=pos.x, y=pos.y, z=pos.z-1})
-			if nod.name == "default:water_flowing" and nod.param2 < p2 and nod.param2 < 7 then
+			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
+			and nod.param2 < p2 and nod.param2 < 7 then
 				v.z = -0.8
 			end
 
