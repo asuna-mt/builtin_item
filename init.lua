@@ -205,29 +205,32 @@ core.register_entity(":__builtin:item", {
 		if minetest.registered_nodes[nod.name].liquidtype == "flowing" then
 
 			local pos = self.object:getpos() ; pos = vector.round(pos)
-			local p2 = node.param2 ; if p2 > 6 then p2 = 0 end
+			local p2 = node.param2
+			if p2 > 6 then p2 = 0 end
+
 			local v = self.object:getvelocity()
 
 			nod = minetest.get_node({x=pos.x+1, y=pos.y, z=pos.z})
-			if nod.name == "default:water_flowing" and nod.param2 < p2 then
-				self.object:setvelocity({x=0.8,y=v.y,z=0})
+			if nod.name == "default:water_flowing" and nod.param2 < p2 and nod.param2 < 7 then
+				v.x = 0.8
 			end
 
 			nod = minetest.get_node({x=pos.x-1, y=pos.y, z=pos.z})
-			if nod.name == "default:water_flowing" and nod.param2 < p2 then
-				self.object:setvelocity({x=-0.8,y=v.y,z=0})
+			if nod.name == "default:water_flowing" and nod.param2 < p2 and nod.param2 < 7 then
+				v.x = -0.8
 			end
 
 			nod = minetest.get_node({x=pos.x, y=pos.y, z=pos.z+1})
-			if nod.name == "default:water_flowing" and nod.param2 < p2 then
-				self.object:setvelocity({x=0,y=v.y,z=0.8})
+			if nod.name == "default:water_flowing" and nod.param2 < p2 and nod.param2 < 7 then
+				v.z = 0.8
 			end
 
 			nod = minetest.get_node({x=pos.x, y=pos.y, z=pos.z-1})
-			if nod.name == "default:water_flowing" and nod.param2 < p2 then
-				self.object:setvelocity({x=0,y=v.y,z=-0.8})
+			if nod.name == "default:water_flowing" and nod.param2 < p2 and nod.param2 < 7 then
+				v.z = -0.8
 			end
 
+			self.object:setvelocity(v)
 			return
 		end
 
