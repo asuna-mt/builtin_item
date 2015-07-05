@@ -1,4 +1,4 @@
--- Minetest: builtin/item_entity.lua
+-- Minetest: builtin/item_entity.lua (5th July 2015)
 
 function core.spawn_item(pos, item)
 	-- Take item in any format
@@ -25,8 +25,8 @@ local function add_effects(pos)
 		time = 0.25,
 		minpos = pos,
 		maxpos = pos,
-		minvel = {x=-1, y=2, z=-1},
-		maxvel = {x=1,  y=5,  z=1},
+		minvel = {x = -1, y = 2, z = -1},
+		maxvel = {x = 1, y = 5, z = 1},
 		minacc = vector.new(),
 		maxacc = vector.new(),
 		minexptime = 1,
@@ -192,7 +192,11 @@ core.register_entity(":__builtin:item", {
 
 		-- If item drops into lava then destroy if enabled
 		if destroy_item > 0 and minetest.get_item_group(nn, "lava") > 0 then
-			minetest.sound_play("builtin_item_lava", {pos = p, max_hear_distance = 6, gain = 0.5})
+			minetest.sound_play("builtin_item_lava", {
+				pos = p,
+				max_hear_distance = 6,
+				gain = 0.5
+			})
 			self.object:remove()
 			add_effects(p)
 			return
@@ -201,34 +205,35 @@ core.register_entity(":__builtin:item", {
 		p.y = p.y + 0.5
 
 		-- Flowing water pushes item along
-		local nod = minetest.get_node(p)
-		if minetest.registered_nodes[nod.name].liquidtype == "flowing" then
+		local nod = minetest.get_node_or_nil(p)
+		if nod and minetest.registered_nodes[nod.name].liquidtype == "flowing" then
 
-			local pos = self.object:getpos() ; pos = vector.round(pos)
+			local pos = self.object:getpos()
+			pos = vector.round(pos)
 			local p2 = node.param2
 			if p2 > 6 then p2 = 0 end
 
 			local v = self.object:getvelocity()
 
-			nod = minetest.get_node({x=pos.x+1, y=pos.y, z=pos.z})
+			nod = minetest.get_node({x = pos.x + 1, y = pos.y, z = pos.z})
 			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
 			and nod.param2 < p2 and nod.param2 < 7 then
 				v.x = 0.8
 			end
 
-			nod = minetest.get_node({x=pos.x-1, y=pos.y, z=pos.z})
+			nod = minetest.get_node({x = pos.x - 1, y = pos.y, z = pos.z})
 			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
 			and nod.param2 < p2 and nod.param2 < 7 then
 				v.x = -0.8
 			end
 
-			nod = minetest.get_node({x=pos.x, y=pos.y, z=pos.z+1})
+			nod = minetest.get_node({x = pos.x, y = pos.y, z = pos.z + 1})
 			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
 			and nod.param2 < p2 and nod.param2 < 7 then
 				v.z = 0.8
 			end
 
-			nod = minetest.get_node({x=pos.x, y=pos.y, z=pos.z-1})
+			nod = minetest.get_node({x = pos.x, y = pos.y, z = pos.z - 1})
 			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
 			and nod.param2 < p2 and nod.param2 < 7 then
 				v.z = -0.8
@@ -241,11 +246,13 @@ core.register_entity(":__builtin:item", {
 		p.y = p.y - 0.5
 
 		-- If node is not registered or node is walkably solid and resting on nodebox
-		if not core.registered_nodes[nn] or core.registered_nodes[nn].walkable and self.object:getvelocity().y == 0 then
+		if not core.registered_nodes[nn]
+		or core.registered_nodes[nn].walkable
+		and self.object:getvelocity().y == 0 then
 			if self.physical_state then
 				local own_stack = ItemStack(self.object:get_luaentity().itemstring)
 				-- Merge with close entities of the same item
-				for _, object in ipairs(core.get_objects_inside_radius(p, 0.8)) do
+				for _, object in ipairs(core.get_objects_inside_radius(p, 1.0)) do
 					local obj = object:get_luaentity()
 					if obj and obj.name == "__builtin:item"
 							and obj.physical_state == false then
