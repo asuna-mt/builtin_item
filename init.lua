@@ -37,6 +37,19 @@ local function add_effects(pos)
 	})
 end
 
+-- check if within map limits (-30911 to 30927)
+function within_limits(pos)
+	if  pos.x > -30913
+	and pos.x <  30928
+	and pos.y > -30913
+	and pos.y <  30928
+	and pos.z > -30913
+	and pos.z <  30928 then
+		return true -- within limits
+	end
+	return false -- beyond limits
+end
+
 core.register_entity(":__builtin:item", {
 	initial_properties = {
 		hp_max = 1,
@@ -97,6 +110,7 @@ core.register_entity(":__builtin:item", {
 	end,
 
 	on_activate = function(self, staticdata, dtime_s)
+if mobs and mobs.entity == false then self.object:remove() end
 		if string.sub(staticdata, 1, string.len("return")) == "return" then
 			local data = core.deserialize(staticdata)
 			if data and type(data) == "table" then
@@ -169,7 +183,8 @@ core.register_entity(":__builtin:item", {
 
 	on_step = function(self, dtime)
 		self.age = self.age + dtime
-		if time_to_live > 0 and self.age > time_to_live then
+		if (time_to_live > 0 and self.age > time_to_live)
+		or not within_limits(self.object:getpos()) then
 			self.itemstring = ''
 			add_effects(self.object:getpos())
 			self.object:remove()
