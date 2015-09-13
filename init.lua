@@ -1,4 +1,139 @@
--- Minetest: builtin/item_entity.lua (8th September 2015)
+-- Minetest: builtin/item_entity.lua (13th September 2015)
+
+-- water flow functions by QwertyMine3 and edited by TenPlus1
+local function to_unit_vector(dir_vector)
+	local inv_roots = {
+		[0] = 1, [1] = 1, [2] = 0.70710678118655, [4] = 0.5,
+		[5] = 0.44721359549996, [8] = 0.35355339059327
+	}
+	local sum = dir_vector.x * dir_vector.x + dir_vector.z * dir_vector.z
+	return {
+		x = dir_vector.x * inv_roots[sum],
+		y = dir_vector.y,
+		z = dir_vector.z * inv_roots[sum]
+	}
+end
+
+function is_touching(realpos, nodepos, radius)
+	local boarder = 0.5 - radius
+	return (math.abs(realpos - nodepos) > (boarder))
+end
+
+function node_ok(pos) -- added by TenPlus1
+	local node = minetest.get_node_or_nil(pos)
+	local nodef = minetest.registered_nodes[node.name]
+	if nodef then
+		return node
+	end
+	return minetest.registered_nodes["air"]
+end
+
+
+function is_water(pos)
+	return (minetest.get_item_group(
+		node_ok({x=pos.x,y=pos.y,z=pos.z}).name, "water") ~= 0)
+end
+
+function is_liquid(pos)
+	return (minetest.get_item_group(
+		node_ok({x=pos.x,y=pos.y,z=pos.z}).name, "liquid") ~= 0)
+end
+
+function node_is_liquid(node)
+	return (minetest.get_item_group(node.name, "liquid") ~= 0)
+end
+
+local function quick_flow_logic(node, pos_testing, direction)
+	local name = node.name
+	local nodef = minetest.registered_nodes[name]
+
+	if minetest.registered_nodes[name].liquidtype == "source" then
+
+		local node_testing = node_ok(pos_testing)
+		local param2_testing = node_testing.param2
+
+		if minetest.registered_nodes[node_testing.name].liquidtype ~= "flowing" then
+			return 0
+		else
+			return direction
+		end
+
+	elseif minetest.registered_nodes[name].liquidtype == "flowing" then
+
+		local node_testing = node_ok(pos_testing)
+		local param2_testing = node_testing.param2
+
+		if minetest.registered_nodes[node_testing.name].liquidtype == "source" then
+			return -direction
+
+		elseif minetest.registered_nodes[node_testing.name].liquidtype == "flowing" then
+
+			if param2_testing < node.param2 then
+				if (node.param2 - param2_testing) > 6 then
+					return -direction
+				else
+					return direction
+				end
+
+			elseif param2_testing > node.param2 then
+				if (param2_testing - node.param2) > 6 then
+					return direction
+				else
+					return -direction
+				end
+			end
+		end
+	end
+	return 0
+end
+
+function quick_flow(pos, node)
+	local x = 0
+	local z = 0
+	
+	if not node_is_liquid(node)  then
+		return {x = 0, y = 0, z = 0}
+	end
+	
+	x = x + quick_flow_logic(node, {x = pos.x - 1, y = pos.y, z = pos.z},-1)
+	x = x + quick_flow_logic(node, {x = pos.x + 1, y = pos.y, z = pos.z}, 1)
+	z = z + quick_flow_logic(node, {x = pos.x, y = pos.y, z = pos.z - 1},-1)
+	z = z + quick_flow_logic(node, {x = pos.x, y = pos.y, z = pos.z + 1}, 1)
+
+	return to_unit_vector({x = x, y = 0, z = z})
+end
+
+--if not in water but touching, move centre to touching block
+--x has higher precedence than z -- if pos changes with x, it affects z
+function move_centre(pos, realpos, node, radius)
+
+	if is_touching(realpos.x, pos.x, radius) then
+
+		if is_liquid({x = pos.x - 1, y = pos.y, z = pos.z}) then
+			pos = {x = pos.x - 1, y = pos.y, z = pos.z}
+			node = node_ok(pos)
+
+		elseif is_liquid({x = pos.x + 1, y = pos.y, z = pos.z}) then
+			pos = {x = pos.x + 1, y = pos.y, z = pos.z}
+			node = minetest.get_node(pos)
+		end
+	end
+
+	if is_touching(realpos.z, pos.z, radius) then
+
+		if is_liquid({x = pos.x, y = pos.y, z = pos.z - 1}) then
+			pos = {x = pos.x, y = pos.y, z = pos.z - 1}
+			node = minetest.get_node(pos)
+
+		elseif is_liquid({x = pos.x, y = pos.y, z = pos.z + 1}) then
+			pos = {x = pos.x, y = pos.y, z = pos.z + 1}
+			node = minetest.get_node(pos)
+		end
+	end
+
+	return pos, node
+end
+-- END water flow functions
 
 function core.spawn_item(pos, item)
 	-- take item in any format
@@ -24,8 +159,8 @@ local function add_effects(pos)
 		maxpos = pos,
 		minvel = {x = -1, y = 2, z = -1},
 		maxvel = {x = 1, y = 5, z = 1},
-		minacc = vector.new(),
-		maxacc = vector.new(),
+		minacc = {x = -4, y = -4, z = -4},
+		maxacc = {x = 4, y = 4, z = 4},
 		minexptime = 1,
 		maxexptime = 3,
 		minsize = 1,
@@ -204,42 +339,32 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		-- flowing water pushes item along
-		local nod = minetest.get_node_or_nil({x = p.x, y = p.y + 0.5, z = p.z})
-		if nod and minetest.registered_nodes[nod.name].liquidtype == "flowing" then
+		-- flowing water pushes item along (by QwertyMine3)
+		local nod = node_ok({x = p.x, y = p.y + 0.5, z = p.z})
+		if minetest.registered_nodes[nod.name].liquidtype == "flowing" then
 
-			local pos = self.object:getpos()
-			pos = vector.round(pos)
-			local p2 = node.param2
-			if p2 > 6 then p2 = 0 end
+			--local get_flowing_dir = function(self)
+			--	local pos = self.object:getpos()
+			--	local node = node_ok(pos)
+			--	return quick_flow(pos, node)
+			--end
 
-			local v = self.object:getvelocity()
+			--local vec = get_flowing_dir(self)
+			local vec = quick_flow(self.object:getpos(),
+				node_ok(self.object:getpos()))
 
-			nod = minetest.get_node({x = pos.x + 1, y = pos.y, z = pos.z})
-			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
-			and nod.param2 < p2 and nod.param2 < 7 then
-				v.x = 0.8
+			if vec then
+				local v = self.object:getvelocity()
+				self.object:setvelocity(
+					{x = vec.x, y = v.y, z = vec.z})
+				self.object:setacceleration(
+					{x = 0, y = -10, z = 0})
+				self.physical_state = true
+				self.object:set_properties({
+					physical = true
+				})
 			end
 
-			nod = minetest.get_node({x = pos.x - 1, y = pos.y, z = pos.z})
-			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
-			and nod.param2 < p2 and nod.param2 < 7 then
-				v.x = -0.8
-			end
-
-			nod = minetest.get_node({x = pos.x, y = pos.y, z = pos.z + 1})
-			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
-			and nod.param2 < p2 and nod.param2 < 7 then
-				v.z = 0.8
-			end
-
-			nod = minetest.get_node({x = pos.x, y = pos.y, z = pos.z - 1})
-			if minetest.registered_nodes[nod.name].liquidtype == "flowing"
-			and nod.param2 < p2 and nod.param2 < 7 then
-				v.z = -0.8
-			end
-
-			self.object:setvelocity(v)
 			return
 		end
 
