@@ -21,6 +21,9 @@ end
 
 function node_ok(pos) -- added by TenPlus1
 	local node = minetest.get_node_or_nil(pos)
+	if not node then
+		node = minetest.registered_nodes["air"]
+	end
 	local nodef = minetest.registered_nodes[node.name]
 	if nodef then
 		return node
