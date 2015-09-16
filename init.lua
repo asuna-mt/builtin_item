@@ -15,20 +15,19 @@ local function to_unit_vector(dir_vector)
 end
 
 function is_touching(realpos, nodepos, radius)
-	local boarder = 0.5 - radius
-	return (math.abs(realpos - nodepos) > (boarder))
+	return (math.abs(realpos - nodepos) > (0.5 - radius))
 end
 
 function node_ok(pos) -- added by TenPlus1
 	local node = minetest.get_node_or_nil(pos)
 	if not node then
-		node = minetest.registered_nodes["air"]
+		return minetest.registered_nodes["default:dirt"]
 	end
 	local nodef = minetest.registered_nodes[node.name]
 	if nodef then
 		return node
 	end
-	return minetest.registered_nodes["air"]
+	return minetest.registered_nodes["default:dirt"]
 end
 
 
@@ -47,10 +46,10 @@ function node_is_liquid(node)
 end
 
 local function quick_flow_logic(node, pos_testing, direction)
-	local name = node.name
-	local nodef = minetest.registered_nodes[name]
 
-	if minetest.registered_nodes[name].liquidtype == "source" then
+	local nodef = minetest.registered_nodes[node.name]
+
+	if minetest.registered_nodes[node.name].liquidtype == "source" then
 
 		local node_testing = node_ok(pos_testing)
 		local param2_testing = node_testing.param2
@@ -61,7 +60,7 @@ local function quick_flow_logic(node, pos_testing, direction)
 			return direction
 		end
 
-	elseif minetest.registered_nodes[name].liquidtype == "flowing" then
+	elseif minetest.registered_nodes[node.name].liquidtype == "flowing" then
 
 		local node_testing = node_ok(pos_testing)
 		local param2_testing = node_testing.param2
@@ -91,8 +90,7 @@ local function quick_flow_logic(node, pos_testing, direction)
 end
 
 function quick_flow(pos, node)
-	local x = 0
-	local z = 0
+	local x, z = 0, 0
 	
 	if not node_is_liquid(node)  then
 		return {x = 0, y = 0, z = 0}
@@ -118,7 +116,7 @@ function move_centre(pos, realpos, node, radius)
 
 		elseif is_liquid({x = pos.x + 1, y = pos.y, z = pos.z}) then
 			pos = {x = pos.x + 1, y = pos.y, z = pos.z}
-			node = minetest.get_node(pos)
+			node = node_ok(pos)
 		end
 	end
 
@@ -126,11 +124,11 @@ function move_centre(pos, realpos, node, radius)
 
 		if is_liquid({x = pos.x, y = pos.y, z = pos.z - 1}) then
 			pos = {x = pos.x, y = pos.y, z = pos.z - 1}
-			node = minetest.get_node(pos)
+			node = node_ok(pos)
 
 		elseif is_liquid({x = pos.x, y = pos.y, z = pos.z + 1}) then
 			pos = {x = pos.x, y = pos.y, z = pos.z + 1}
-			node = minetest.get_node(pos)
+			node = node_ok(pos)
 		end
 	end
 
