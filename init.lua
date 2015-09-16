@@ -1,4 +1,4 @@
--- Minetest: builtin/item_entity.lua (13th September 2015)
+-- Minetest: builtin/item_entity.lua (16th September 2015)
 
 -- water flow functions by QwertyMine3 and edited by TenPlus1
 local function to_unit_vector(dir_vector)
@@ -258,7 +258,8 @@ core.register_entity(":__builtin:item", {
 
 	try_merge_with = function(self, own_stack, object, obj)
 		local stack = ItemStack(obj.itemstring)
-		if own_stack:get_name() == stack:get_name() and stack:get_free_space() > 0 then
+		if own_stack:get_name() == stack:get_name()
+		and stack:get_free_space() > 0 then
 			local overflow = false
 			local count = stack:get_count() + own_stack:get_count()
 			local max_count = stack:get_stack_max()
@@ -344,13 +345,6 @@ core.register_entity(":__builtin:item", {
 		local nod = node_ok({x = p.x, y = p.y + 0.5, z = p.z})
 		if minetest.registered_nodes[nod.name].liquidtype == "flowing" then
 
-			--local get_flowing_dir = function(self)
-			--	local pos = self.object:getpos()
-			--	local node = node_ok(pos)
-			--	return quick_flow(pos, node)
-			--end
-
-			--local vec = get_flowing_dir(self)
 			local vec = quick_flow(self.object:getpos(),
 				node_ok(self.object:getpos()))
 
