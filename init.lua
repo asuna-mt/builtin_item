@@ -1,4 +1,4 @@
--- Minetest: builtin/item_entity.lua (16th September 2015)
+-- Minetest: builtin/item_entity.lua (30th September 2015)
 
 -- water flow functions by QwertyMine3 and edited by TenPlus1
 local function to_unit_vector(dir_vector)
@@ -140,12 +140,15 @@ function core.spawn_item(pos, item)
 	-- take item in any format
 	local stack = ItemStack(item)
 	local obj = core.add_entity(pos, "__builtin:item")
-	obj:get_luaentity():set_item(stack:to_string())
+	-- Don't use obj if it couldn't be added to the map.
+	if obj then
+		obj:get_luaentity():set_item(stack:to_string())
+	end
 	return obj
 end
 
 -- if item_entity_ttl is not set, enity will have default life time
--- or setting to -1 disables the feature
+-- setting to -1 disables the feature
 local time_to_live = tonumber(core.setting_get("item_entity_ttl")) or 900
 
 -- if destroy_item is 1 then dropped items will burn inside lava
@@ -241,7 +244,7 @@ core.register_entity(":__builtin:item", {
 			local data = core.deserialize(staticdata)
 			if data and type(data) == "table" then
 				self.itemstring = data.itemstring
-				if data.age then 
+				if data.age then
 					self.age = data.age + dtime_s
 				else
 					self.age = dtime_s
