@@ -1,4 +1,4 @@
--- Minetest: builtin/item_entity.lua (30th September 2015)
+-- Minetest: builtin/item_entity.lua (5th October 2015)
 
 -- water flow functions by QwertyMine3 and edited by TenPlus1
 local function to_unit_vector(dir_vector)
@@ -238,7 +238,10 @@ core.register_entity(":__builtin:item", {
 	on_activate = function(self, staticdata, dtime_s)
 
 		-- special function to fast remove entities (xanadu only)
-		if mobs and mobs.entity == false then self.object:remove() end
+		if mobs and mobs.entity and mobs.entity == false then
+			self.object:remove()
+			return
+		end
 
 		if string.sub(staticdata, 1, string.len("return")) == "return" then
 			local data = core.deserialize(staticdata)
@@ -339,8 +342,8 @@ core.register_entity(":__builtin:item", {
 				max_hear_distance = 6,
 				gain = 0.5
 			})
-			self.object:remove()
 			add_effects(p)
+			self.object:remove()
 			return
 		end
 
