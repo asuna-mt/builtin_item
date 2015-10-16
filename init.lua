@@ -14,11 +14,11 @@ local function to_unit_vector(dir_vector)
 	}
 end
 
-function is_touching(realpos, nodepos, radius)
+local function is_touching(realpos, nodepos, radius)
 	return (math.abs(realpos - nodepos) > (0.5 - radius))
 end
 
-function node_ok(pos) -- added by TenPlus1
+local function node_ok(pos) -- added by TenPlus1
 	local node = minetest.get_node_or_nil(pos)
 	if not node then
 		return minetest.registered_nodes["default:dirt"]
@@ -31,17 +31,17 @@ function node_ok(pos) -- added by TenPlus1
 end
 
 
-function is_water(pos)
+local function is_water(pos)
 	return (minetest.get_item_group(
 		node_ok({x=pos.x,y=pos.y,z=pos.z}).name, "water") ~= 0)
 end
 
-function is_liquid(pos)
+local function is_liquid(pos)
 	return (minetest.get_item_group(
 		node_ok({x=pos.x,y=pos.y,z=pos.z}).name, "liquid") ~= 0)
 end
 
-function node_is_liquid(node)
+local function node_is_liquid(node)
 	return (minetest.get_item_group(node.name, "liquid") ~= 0)
 end
 
@@ -89,7 +89,7 @@ local function quick_flow_logic(node, pos_testing, direction)
 	return 0
 end
 
-function quick_flow(pos, node)
+local function quick_flow(pos, node)
 	local x, z = 0, 0
 	
 	if not node_is_liquid(node)  then
@@ -106,7 +106,7 @@ end
 
 --if not in water but touching, move centre to touching block
 --x has higher precedence than z -- if pos changes with x, it affects z
-function move_centre(pos, realpos, node, radius)
+local function move_centre(pos, realpos, node, radius)
 
 	if is_touching(realpos.x, pos.x, radius) then
 
@@ -174,7 +174,7 @@ local function add_effects(pos)
 end
 
 -- check if within map limits (-30911 to 30927)
-function within_limits(pos)
+local function within_limits(pos)
 	if  pos.x > -30913
 	and pos.x <  30928
 	and pos.y > -30913
@@ -223,7 +223,8 @@ core.register_entity(":__builtin:item", {
 			textures = {itemname},
 			visual_size = {x = s, y = s},
 			collisionbox = {-c, -c, -c, c, c, c},
-			automatic_rotate = math.pi * 0.5,
+			--automatic_rotate = math.pi * 0.5,
+			automatic_rotate = 1,
 		}
 		self.object:set_properties(prop)
 	end,
