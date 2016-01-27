@@ -19,14 +19,17 @@ local function is_touching(realpos, nodepos, radius)
 end
 
 local function node_ok(pos) -- added by TenPlus1
+
 	local node = minetest.get_node_or_nil(pos)
+
 	if not node then
 		return minetest.registered_nodes["default:dirt"]
 	end
-	local nodef = minetest.registered_nodes[node.name]
-	if nodef then
+
+	if minetest.registered_nodes[node.name] then
 		return node
 	end
+
 	return minetest.registered_nodes["default:dirt"]
 end
 
@@ -198,6 +201,7 @@ core.register_entity(":__builtin:item", {
 		spritediv = {x = 1, y = 1},
 		initial_sprite_basepos = {x = 0, y = 0},
 		is_visible = false,
+		infotext = "",
 	},
 
 	itemstring = "",
@@ -216,7 +220,18 @@ core.register_entity(":__builtin:item", {
 		local s = 0.2 + 0.1 * (count / max_count)
 		local c = s
 		local itemtable = stack:to_table()
-		local itemname = itemtable and itemtable.name
+		local itemname = nil
+		local description = ""
+		if itemtable then
+			itemname = stack:to_table().name
+		end
+		local item_texture = nil
+		local item_type = ""
+		if core.registered_items[itemname] then
+			item_texture = core.registered_items[itemname].inventory_image
+			item_type = core.registered_items[itemname].type
+			description = core.registered_items[itemname].description
+		end
 		local prop = {
 			is_visible = true,
 			visual = "wielditem",
@@ -225,6 +240,7 @@ core.register_entity(":__builtin:item", {
 			collisionbox = {-c, -c, -c, c, c, c},
 			--automatic_rotate = math.pi * 0.5,
 			automatic_rotate = 1,
+			infotext = description,
 		}
 		self.object:set_properties(prop)
 	end,
@@ -232,7 +248,8 @@ core.register_entity(":__builtin:item", {
 	get_staticdata = function(self)
 		return core.serialize({
 			itemstring = self.itemstring,
-			age = self.age
+			age = self.age,
+			dropped_by = self.dropped_by
 		})
 	end,
 
@@ -253,6 +270,7 @@ core.register_entity(":__builtin:item", {
 				else
 					self.age = dtime_s
 				end
+				self.dropped_by = data.dropped_by
 			end
 		else
 			self.itemstring = staticdata
@@ -376,7 +394,7 @@ core.register_entity(":__builtin:item", {
 			if self.physical_state then
 				local own_stack = ItemStack(self.object:get_luaentity().itemstring)
 				-- merge with close entities of the same item
-				for _, object in ipairs(core.get_objects_inside_radius(p, 0.8)) do
+				for _, object in pairs(core.get_objects_inside_radius(p, 0.8)) do
 					local obj = object:get_luaentity()
 					if obj and obj.name == "__builtin:item"
 							and obj.physical_state == false then
