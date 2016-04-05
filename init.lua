@@ -231,7 +231,7 @@ core.register_entity(":__builtin:item", {
 
 		local stack = ItemStack(itemstring)
 		local count = stack:get_count()
-		local max_count = stack:get_stack_max()
+		local max_count = stack:get_stack_max() or 1 -- def added
 
 		if count > max_count then
 			count = max_count
