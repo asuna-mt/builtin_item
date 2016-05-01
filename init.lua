@@ -225,11 +225,6 @@ core.register_entity(":__builtin:item", {
 	physical_state = true,
 	age = 0,
 
-	on_blast= function(obj, damage)
-		return false, true, {} -- no damage, do knockback, drop nowt
-	end,
-
-
 	set_item = function(self, itemstring)
 
 		self.itemstring = itemstring
