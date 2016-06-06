@@ -43,19 +43,24 @@ end
 
 local function is_water(pos)
 
-	return (minetest.get_item_group(
-		node_ok({x = pos.x, y = pos.y, z = pos.z}).name, "water") ~= 0)
+--	return (minetest.get_item_group(
+--		node_ok({x = pos.x, y = pos.y, z = pos.z}).name, "water") ~= 0)
+	return (minetest.registered_nodes[
+		node_ok({x = pos.x, y = pos.y, z = pos.z}).name].groups.water)
 end
 
 local function is_liquid(pos)
 
-	return (minetest.get_item_group(
-		node_ok({x = pos.x, y = pos.y, z = pos.z}).name, "liquid") ~= 0)
+--	return (minetest.get_item_group(
+--		node_ok({x = pos.x, y = pos.y, z = pos.z}).name, "liquid") ~= 0)
+	return (minetest.registered_nodes[
+		node_ok({x = pos.x, y = pos.y, z = pos.z}).name].groups.liquid)
 end
 
 local function node_is_liquid(node)
 
-	return (minetest.get_item_group(node.name, "liquid") ~= 0)
+--	return (minetest.get_item_group(node.name, "liquid") ~= 0)
+	return (minetest.registered_nodes[node.name].groups.liquid)
 end
 
 local function quick_flow_logic(node, pos_testing, direction)
@@ -281,7 +286,8 @@ core.register_entity(":__builtin:item", {
 	on_activate = function(self, staticdata, dtime_s)
 
 		-- special function to fast remove entities (xanadu only)
-		if mobs and mobs.entity and mobs.entity == false then
+		if (mobs and mobs.entity and mobs.entity == false)
+		or not self then
 
 			self.object:remove()
 
@@ -486,6 +492,7 @@ core.register_entity(":__builtin:item", {
 				self.object:setacceleration({x = 0, y = 0, z = 0})
 				self.physical_state = false
 				self.object:set_properties({physical = false})
+self.object:set_properties({automatic_rotate = 0})
 			end
 		else
 			if not self.physical_state then
