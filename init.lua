@@ -430,8 +430,6 @@ core.register_entity(":__builtin:item", {
 				end
 			end
 		end
-
-		self.object:set_properties({automatic_rotate = 0}) -- stackable items wont rotate
 	end,
 
 	on_punch = function(self, puncher)
