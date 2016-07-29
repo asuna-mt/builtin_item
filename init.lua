@@ -170,6 +170,9 @@ local time_to_live = tonumber(core.setting_get("item_entity_ttl")) or 900
 -- if destroy_item is 1 then dropped items will burn inside lava
 local destroy_item = tonumber(core.setting_get("destroy_item")) or 1
 
+-- entity gravity
+local gravity = tonumber(minetest.setting_get("movement_gravity")) or 9.81
+
 -- particle effects for when item is destroyed
 local function add_effects(pos)
 
@@ -210,7 +213,6 @@ core.register_entity(":__builtin:item", {
 		hp_max = 1,
 		physical = true,
 		collide_with_objects = false,
-		--makes_footstep_sound = true,
 		collisionbox = {-0.3, -0.3, -0.3, 0.3, 0.3, 0.3},
 		visual = "wielditem",
 		visual_size = {x = 0.4, y = 0.4},
@@ -248,6 +250,15 @@ core.register_entity(":__builtin:item", {
 			automatic_rotate = math.pi * 0.5,
 			infotext = core.registered_items[itemname].description
 		})
+	end,
+
+	update_gravity = function(self)
+		if not self.physical_state then
+			self.object:setacceleration({x = 0, y = 0, z = 0})
+			return
+		end
+
+		self.object:setacceleration({x = 0, y = -gravity, z = 0})
 	end,
 
 	get_staticdata = function(self)
@@ -289,7 +300,7 @@ core.register_entity(":__builtin:item", {
 
 		self.object:set_armor_groups({immortal = 1})
 		self.object:setvelocity({x = 0, y = 2, z = 0})
-		self.object:setacceleration({x = 0, y = -9.81, z = 0})
+		self:update_gravity()
 		self:set_item(self.itemstring)
 	end,
 
@@ -297,43 +308,33 @@ core.register_entity(":__builtin:item", {
 
 		if self.age == entity.age then
 			-- Can not merge with itself
-			return
+			return false
 		end
 		
 		local stack = ItemStack(entity.itemstring)
 		local name = stack:get_name()
 
 		if own_stack:get_name() ~= name or own_stack:get_free_space() == 0 then
-			-- Can not merge different
+			-- Can not merge different or full stack
 			return false
 		end
 
 		local count = own_stack:get_count()
 		local total_count = stack:get_count() + count
 		local max_count = stack:get_stack_max()
-		local remove_entity = false
 
 		-- Merge the remote stack into this one
 		if total_count > max_count then
-			count = max_count
-		else
-			remove_entity = true
-			count = total_count
+			return false
 		end
 
-		local pos = self.object:getpos()
-		pos.y = pos.y + (count / max_count) * 0.15
-		self.object:moveto(pos)
+		local pos = object:getpos()
+		pos.y = pos.y + ((total_count - count) / max_count) * 0.15
 
-		self:set_item(name .. " " .. count)
+		self:set_item(name .. " " .. total_count)
 
-		if remove_entity then
-			entity.itemstring = ""
-			object:remove()
-			return true
-		end
-
-		entity:set_item(name .. " " .. (total_count - count))
+		entity.itemstring = ""
+		object:remove()
 
 		return true
 	end,
@@ -399,12 +400,7 @@ core.register_entity(":__builtin:item", {
 			physical = entity_fall
 		})
 
-		if entity_fall then
-			-- Entity state changed to falling
-			self.object:setacceleration({x = 0, y = -9.81, z = 0})
-		else
-			self.object:setacceleration({x = 0, y = 0, z = 0})
-		end
+		self:update_gravity()
 
 		-- Collect the items around to merge with
 		local own_stack = ItemStack(self.itemstring)
