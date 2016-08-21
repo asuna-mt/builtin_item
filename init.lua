@@ -331,7 +331,7 @@ core.register_entity(":__builtin:item", {
 		local pos = object:getpos()
 		pos.y = pos.y + ((total_count - count) / max_count) * 0.15
 
-		self:set_item(name .. " " .. total_count)
+		self:set_item(name .. " " .. total_count) ; self.age = 0
 
 		entity.itemstring = ""
 		object:remove()
@@ -365,6 +365,11 @@ core.register_entity(":__builtin:item", {
 			})
 			add_effects(pos)
 			self.object:remove()
+			return
+		end
+
+		-- dropped on ice makes item continue moving
+		if node.name == "default:ice" then
 			return
 		end
 
@@ -408,7 +413,7 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		local objects = core.get_objects_inside_radius(pos, 0.8)
+		local objects = core.get_objects_inside_radius(pos, 1.0)--0.8)
 
 		for k, object in pairs(objects) do
 
