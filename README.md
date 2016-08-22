@@ -1,4 +1,4 @@
-item_entity.lua
+item_entity.lua replacement
 
 edited by TenPlus1
 
@@ -8,6 +8,7 @@ Features:
 - Items are removed after 120 seconds or the time that is specified by
    remove_items in minetest.conf (-1 disables it)
 - Particle effects added
+- Dropped items keep moving when on ice
 
 
          DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
