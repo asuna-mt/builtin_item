@@ -1,4 +1,4 @@
--- Minetest: builtin/item_entity.lua (27th January 2016)
+-- Minetest: builtin/item_entity.lua (22nd August 2016)
 
 -- water flow functions by QwertyMine3, edited by TenPlus1
 local function to_unit_vector(dir_vector)
