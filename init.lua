@@ -1,4 +1,7 @@
--- Minetest: builtin/item_entity.lua (22nd August 2016)
+
+-- Minetest: builtin/item_entity.lua (11th September 2016)
+
+local abs = math.abs
 
 -- water flow functions by QwertyMine3, edited by TenPlus1
 local function to_unit_vector(dir_vector)
@@ -23,7 +26,7 @@ end
 
 local function is_touching(realpos, nodepos, radius)
 
-	return (math.abs(realpos - nodepos) > (0.5 - radius))
+	return (abs(realpos - nodepos) > (0.5 - radius))
 end
 
 local function node_ok(pos)
@@ -41,21 +44,10 @@ local function node_ok(pos)
 	return minetest.registered_nodes["default:dirt"]
 end
 
-local function is_water(pos)
-
-	return (minetest.registered_nodes[
-		node_ok({x = pos.x, y = pos.y, z = pos.z}).name].groups.water)
-end
-
 local function is_liquid(pos)
 
 	return (minetest.registered_nodes[
 		node_ok({x = pos.x, y = pos.y, z = pos.z}).name].groups.liquid)
-end
-
-local function node_is_liquid(node)
-
-	return (minetest.registered_nodes[node.name].groups.liquid)
 end
 
 local function quick_flow_logic(node, pos_testing, direction)
@@ -106,11 +98,11 @@ end
 local function quick_flow(pos, node)
 
 	local x, z = 0, 0
-	
-	if not node_is_liquid(node)  then
+
+	if not minetest.registered_nodes[node.name].groups.liquid then
 		return {x = 0, y = 0, z = 0}
 	end
-	
+
 	x = x + quick_flow_logic(node, {x = pos.x - 1, y = pos.y, z = pos.z},-1)
 	x = x + quick_flow_logic(node, {x = pos.x + 1, y = pos.y, z = pos.z}, 1)
 	z = z + quick_flow_logic(node, {x = pos.x, y = pos.y, z = pos.z - 1},-1)
@@ -209,6 +201,7 @@ local function within_limits(pos)
 end
 
 core.register_entity(":__builtin:item", {
+
 	initial_properties = {
 		hp_max = 1,
 		physical = true,
@@ -253,6 +246,7 @@ core.register_entity(":__builtin:item", {
 	end,
 
 	update_gravity = function(self)
+
 		if not self.physical_state then
 			self.object:setacceleration({x = 0, y = 0, z = 0})
 			return
@@ -413,7 +407,7 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		local objects = core.get_objects_inside_radius(pos, 1.0)--0.8)
+		local objects = core.get_objects_inside_radius(pos, 1.0)
 
 		for k, object in pairs(objects) do
 
