@@ -336,8 +336,7 @@ core.register_entity(":__builtin:item", {
 	on_step = function(self, dtime)
 
 		self.age = self.age + dtime
-		if (time_to_live > 0 and self.age > time_to_live)
-		or self.itemstring == "" then
+		if time_to_live > 0 and self.age > time_to_live then
 			self.itemstring = ""
 			self.object:remove()
 			return
@@ -346,23 +345,10 @@ core.register_entity(":__builtin:item", {
 		local pos = self.object:getpos()
 		local node = node_ok({
 			x = pos.x,
-			y = pos.y,
+			y = pos.y - 0.5,
 			z = pos.z
 		})
 		local def = core.registered_nodes[node.name]
-
-		-- item inside block, move upwards
-		if def.liquidtype ~= "source"
-		and def.liquidtype ~= "flowing"
-		and node.name ~= "air"
-		and def.drawtype == "normal" then
-
-			local npos = minetest.find_node_near(pos, 1, "air")
-			if npos then
-				self.object:moveto(npos)
-			end
-			return
-		end
 
 		-- destroy item when dropped into lava (if enabled)
 		if destroy_item > 0 and def.groups.lava then
@@ -376,9 +362,17 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		if def.liquidtype == "flowing" then
+		-- dropped on ice makes item continue moving
+		if node.name == "default:ice" then
+			return
+		end
 
-			local vec = quick_flow(pos, node)
+		-- flowing water pushes item along (by QwertyMine3)
+		local nod = node_ok({x = pos.x, y = pos.y + 0.5, z = pos.z})
+		if minetest.registered_nodes[nod.name].liquidtype == "flowing" then
+
+			local vec = quick_flow(self.object:getpos(),
+				node_ok(self.object:getpos()))
 
 			if vec then
 
@@ -389,16 +383,6 @@ core.register_entity(":__builtin:item", {
 			end
 
 			return
-		else
-
-			if self.object:getvelocity().y == 0
-			and minetest.get_node({
-				x = pos.x,
-				y = pos.y - 0.5,
-				z = pos.z}).name ~= "default:ice" then
-
-				self.object:setvelocity({x = 0, y = 0, z = 0})
-			end
 		end
 
 		-- Ignore is walkable -> stop until the block loaded
