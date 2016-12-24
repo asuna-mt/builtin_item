@@ -411,17 +411,43 @@ core.register_entity(":__builtin:item", {
 				self.object:setvelocity({x = 0, y = 0, z = 0})
 			end
 
+		-- Collect the items around to merge with
+		local own_stack = ItemStack(self.itemstring)
+		if own_stack:get_free_space() == 0 then
 			return
 		end
 
+		local objects = core.get_objects_inside_radius(pos, 0.8)
+
+		for k, object in pairs(objects) do
+
+			local entity = object:get_luaentity()
+
+			if entity and entity.name == "__builtin:item" then
+
+				if self:try_merge_with(own_stack, object, entity) then
+
+					own_stack = ItemStack(self.itemstring)
+
+					if own_stack:get_free_space() == 0 then
+						return
+					end
+				end
+			end
+		end
+
+			return
+		end
+--[[
+print ("---- kerge")
 		self.object:setvelocity({x = 0, y = 0, z = 0})
 		self.physical_state = entity_fall
 		self.object:set_properties({
 			physical = entity_fall
 		})
 
-		self:update_gravity()
-
+		self:update_gravity()]]
+--[[
 		-- Collect the items around to merge with
 		local own_stack = ItemStack(self.itemstring)
 		if own_stack:get_free_space() == 0 then
@@ -445,7 +471,7 @@ core.register_entity(":__builtin:item", {
 					end
 				end
 			end
-		end
+		end]]
 	end,
 
 	on_punch = function(self, puncher)
