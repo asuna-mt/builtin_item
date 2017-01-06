@@ -335,6 +335,13 @@ core.register_entity(":__builtin:item", {
 
 	on_step = function(self, dtime)
 
+self.timer = (self.timer or 0) + dtime
+if self.timer < 0.5 then
+	return
+end
+self.timer = 0
+
+
 		self.age = self.age + dtime
 		if (time_to_live > 0 and self.age > time_to_live)
 		or self.itemstring == "" then
@@ -351,7 +358,7 @@ core.register_entity(":__builtin:item", {
 		})
 		local def = core.registered_nodes[node.name]
 
-		-- item inside block, move upwards
+		-- item inside block, move to vacant space
 		if def.liquidtype ~= "source"
 		and def.liquidtype ~= "flowing"
 		and node.name ~= "air"
