@@ -374,8 +374,7 @@ core.register_entity(":__builtin:item", {
 		local def = core.registered_nodes[node.name]
 
 		-- item inside block, move to vacant space
-		if def.liquidtype ~= "source"
-		and def.liquidtype ~= "flowing"
+		if not def.liquid
 		and node.name ~= "air"
 		and def.drawtype == "normal" then
 
@@ -426,11 +425,12 @@ core.register_entity(":__builtin:item", {
 		end
 
 		-- Ignore is walkable -> stop until the block loaded
-		local entity_fall = (def and not def.walkable)
+		local entity_fall = not def.walkable
 
 		if self.physical_state == entity_fall then
 
-			-- This stops pushing items where water causes them to flow from stationary
+			-- This stops pushing items where water caused them
+			-- to continue flowing from stationary
 			if not entity_fall then
 				self.object:setvelocity({x = 0, y = 0, z = 0})
 			end
@@ -443,7 +443,7 @@ core.register_entity(":__builtin:item", {
 
 			local objects = core.get_objects_inside_radius(pos, 0.8)
 
-			for k, object in pairs(objects) do
+			for k, object in ipairs(objects) do
 
 				local entity = object:get_luaentity()
 
