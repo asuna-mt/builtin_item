@@ -1,5 +1,5 @@
 
--- Minetest: builtin/item_entity.lua (11th September 2016)
+-- Replaces: builtin/item_entity.lua (13th January 2017)
 
 local abs = math.abs
 
@@ -24,10 +24,12 @@ local function to_unit_vector(dir_vector)
 	}
 end
 
+
 local function is_touching(realpos, nodepos, radius)
 
 	return (abs(realpos - nodepos) > (0.5 - radius))
 end
+
 
 local function node_ok(pos)
 
@@ -44,11 +46,13 @@ local function node_ok(pos)
 	return minetest.registered_nodes["default:dirt"]
 end
 
+
 local function is_liquid(pos)
 
 	return (minetest.registered_nodes[
 		node_ok({x = pos.x, y = pos.y, z = pos.z}).name].groups.liquid)
 end
+
 
 local function quick_flow_logic(node, pos_testing, direction)
 
@@ -95,6 +99,7 @@ local function quick_flow_logic(node, pos_testing, direction)
 	return 0
 end
 
+
 local function quick_flow(pos, node)
 
 	local x, z = 0, 0
@@ -110,6 +115,7 @@ local function quick_flow(pos, node)
 
 	return to_unit_vector({x = x, y = 0, z = z})
 end
+
 
 --if not in water but touching, move centre to touching block
 --x has higher precedence than z -- if pos changes with x, it affects z
@@ -143,6 +149,7 @@ local function move_centre(pos, realpos, node, radius)
 end
 -- END water flow functions
 
+
 function core.spawn_item(pos, item)
 
 	local obj = core.add_entity(pos, "__builtin:item")
@@ -154,6 +161,7 @@ function core.spawn_item(pos, item)
 
 	return obj
 end
+
 
 -- if item_entity_ttl is not set, enity will have default life time
 -- setting to -1 disables the feature
@@ -185,6 +193,7 @@ local function add_effects(pos)
 	})
 end
 
+
 -- check if within map limits (-30911 to 30927)
 local function within_limits(pos)
 
@@ -199,6 +208,7 @@ local function within_limits(pos)
 
 	return false -- beyond limits
 end
+
 
 core.register_entity(":__builtin:item", {
 
@@ -219,6 +229,7 @@ core.register_entity(":__builtin:item", {
 	itemstring = "",
 	physical_state = true,
 	age = 0,
+
 
 	set_item = function(self, itemstring)
 
@@ -245,6 +256,7 @@ core.register_entity(":__builtin:item", {
 		})
 	end,
 
+
 	update_gravity = function(self)
 
 		if not self.physical_state then
@@ -255,6 +267,7 @@ core.register_entity(":__builtin:item", {
 		self.object:setacceleration({x = 0, y = -gravity, z = 0})
 	end,
 
+
 	get_staticdata = function(self)
 
 		return core.serialize({
@@ -264,6 +277,7 @@ core.register_entity(":__builtin:item", {
 			dropped_by = self.dropped_by
 		})
 	end,
+
 
 	on_activate = function(self, staticdata, dtime_s)
 
@@ -297,6 +311,7 @@ core.register_entity(":__builtin:item", {
 		self:update_gravity()
 		self:set_item(self.itemstring)
 	end,
+
 
 	try_merge_with = function(self, own_stack, object, entity)
 
@@ -333,14 +348,14 @@ core.register_entity(":__builtin:item", {
 		return true
 	end,
 
+
 	on_step = function(self, dtime)
 
-self.timer = (self.timer or 0) + dtime
-if self.timer < 0.5 then
-	return
-end
-self.timer = 0
-
+		self.timer = (self.timer or 0) + dtime
+		if self.timer < 0.5 then
+			return
+		end
+		self.timer = 0
 
 		self.age = self.age + dtime
 		if (time_to_live > 0 and self.age > time_to_live)
@@ -448,6 +463,7 @@ self.timer = 0
 			return
 		end
 	end,
+
 
 	on_punch = function(self, puncher)
 
