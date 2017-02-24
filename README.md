@@ -9,5 +9,6 @@ Features:
    remove_items in minetest.conf (-1 disables it)
 - Particle effects added
 - Dropped items keep sliding when on ice
+- Items stuck inside solid nodes move to nearest empty space
 
 License: MIT

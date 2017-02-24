@@ -281,9 +281,7 @@ core.register_entity(":__builtin:item", {
 
 	on_activate = function(self, staticdata, dtime_s)
 
-		-- special function to fast remove entities (xanadu only)
-		if (mobs and mobs.entity and mobs.entity == false)
-		or not self then
+		if not self then
 
 			self.object:remove()
 
