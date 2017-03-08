@@ -349,12 +349,6 @@ core.register_entity(":__builtin:item", {
 
 	on_step = function(self, dtime)
 
-		self.timer = (self.timer or 0) + dtime
-		if self.timer < 0.5 then
-			return
-		end
-		self.timer = 0
-
 		self.age = self.age + dtime
 		if (time_to_live > 0 and self.age > time_to_live)
 		or self.itemstring == "" then
@@ -362,6 +356,12 @@ core.register_entity(":__builtin:item", {
 			self.object:remove()
 			return
 		end
+
+		self.timer = (self.timer or 0) + dtime
+		if self.timer < 0.5 then
+			return
+		end
+		self.timer = 0
 
 		local pos = self.object:getpos()
 		local node = node_ok({
