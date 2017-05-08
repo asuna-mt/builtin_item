@@ -49,7 +49,8 @@ end
 
 local function is_liquid(pos)
 
-	return (minetest.registered_nodes[node_ok(pos).name].groups.liquid)
+	return (minetest.registered_nodes[
+		node_ok({x = pos.x, y = pos.y, z = pos.z}).name].groups.liquid)
 end
 
 
@@ -181,9 +182,9 @@ local function add_effects(pos)
 		minpos = pos,
 		maxpos = pos,
 		minvel = {x = -1, y = 2, z = -1},
-		maxvel = {x = 1, y = 4, z = 1},
-		minacc = {x = 0, y = 0, z = 0},
-		maxacc = {x = 0, y = 0, z = 0},
+		maxvel = {x = 1, y = 5, z = 1},
+		minacc = {x = -4, y = -4, z = -4},
+		maxacc = {x = 4, y = 4, z = 4},
 		minexptime = 1,
 		maxexptime = 3,
 		minsize = 1,
@@ -259,9 +260,7 @@ core.register_entity(":__builtin:item", {
 	update_gravity = function(self)
 
 		if not self.physical_state then
-
 			self.object:setacceleration({x = 0, y = 0, z = 0})
-
 			return
 		end
 
