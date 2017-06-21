@@ -27,11 +27,7 @@ local function node_ok(pos)
 
 	local node = minetest.get_node_or_nil(pos)
 
-	if not node then
-		return minetest.registered_nodes["default:dirt"]
-	end
-
-	if minetest.registered_nodes[node.name] then
+	if node and minetest.registered_nodes[node.name] then
 		return node
 	end
 
@@ -78,11 +74,11 @@ end
 
 local function quick_flow(pos, node)
 
-	local x, z = 0, 0
-
 	if not minetest.registered_nodes[node.name].groups.liquid then
 		return {x = 0, y = 0, z = 0}
 	end
+
+	local x, z = 0, 0
 
 	x = x + quick_flow_logic(node, {x = pos.x - 1, y = pos.y, z = pos.z},-1)
 	x = x + quick_flow_logic(node, {x = pos.x + 1, y = pos.y, z = pos.z}, 1)
@@ -196,6 +192,7 @@ core.register_entity(":__builtin:item", {
 			visual_size = {x = size, y = size},
 			collisionbox = {-size, -size, -size, size, size, size},
 			automatic_rotate = math.pi * 0.5,
+			wield_item = itemstring,
 			infotext = core.registered_items[itemname].description
 		})
 	end,
@@ -257,39 +254,87 @@ core.register_entity(":__builtin:item", {
 	end,
 
 
-	try_merge_with = function(self, own_stack, object, entity)
+	-- moves items from this stack to an other stack
+	try_merge_with = function(self, own_stack, object, obj)
 
-		if self.age == entity.age then
-			-- Can not merge with itself
-			return false
-		end
-		
-		local stack = ItemStack(entity.itemstring)
-		local name = stack:get_name()
-
-		if own_stack:get_name() ~= name or own_stack:get_free_space() == 0 then
-			-- Can not merge different or full stack
-			return false
+		-- cannot merge with itself
+		if self.age == obj.age then
+			return
 		end
 
-		local count = own_stack:get_count()
-		local total_count = stack:get_count() + count
-		local max_count = stack:get_stack_max()
+		-- other item's stack
+		local stack = ItemStack(obj.itemstring)
 
-		-- Merge the remote stack into this one
-		if total_count > max_count then
-			return false
+		-- only merge if items are the same
+		if own_stack:get_name() == stack:get_name()
+		and own_stack:get_meta() == stack:get_meta()
+		and own_stack:get_wear() == stack:get_wear()
+		and stack:get_free_space() > 0 then
+
+			local overflow = false
+			local count = stack:get_count() + own_stack:get_count()
+			local max_count = stack:get_stack_max()
+
+			if count > max_count then
+
+				overflow = true
+				stack:set_count(max_count)
+				count = count - max_count
+				own_stack:set_count(count)
+			else
+				self.itemstring = ""
+				stack:set_count(count)
+			end
+
+			local pos = object:getpos()
+
+			pos.y = pos.y + (count - stack:get_count()) / max_count * 0.15
+
+			object:moveto(pos, false)
+
+			local s, c
+
+			if not overflow then
+
+				obj.itemstring = stack:to_string()
+				s = 0.2 + 0.1 * (count / max_count)
+				c = s
+
+				object:set_properties({
+					visual_size = {x = s, y = s},
+					collisionbox = {-c, -c, -c, c, c, c},
+					wield_item = obj.itemstring
+				})
+
+				self.object:remove()
+
+				return true -- merged ok
+			else
+				s = 0.4
+				c = 0.3
+
+				obj.itemstring = stack:to_string()
+
+				object:set_properties({
+					visual_size = {x = s, y = s},
+					collisionbox = {-c, -c, -c, c, c, c},
+					wield_item = obj.itemstring
+				})
+
+				s = 0.2 + 0.1 * (count / max_count)
+				c = s
+
+				self.itemstring = own_stack:to_string()
+
+				self.object:set_properties({
+					visual_size = {x = s, y = s},
+					collisionbox = {-c, -c, -c, c, c, c},
+					wield_item = self.itemstring
+				})
+			end
 		end
 
-		local pos = object:getpos()
-		pos.y = pos.y + ((total_count - count) / max_count) * 0.15
-
-		self:set_item(name .. " " .. total_count) ; self.age = 0
-
-		entity.itemstring = ""
-		object:remove()
-
-		return true
+		return false -- merge failed
 	end,
 
 
