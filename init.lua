@@ -1,5 +1,27 @@
+-- Minetest: builtin/item_entity.lua
 
--- Replaces: builtin/item_entity.lua (13th January 2017)
+-- override ice to make slippery for 0.4.16
+minetest.override_item("default:ice", {
+	groups = {cracky = 3, puts_out_fire = 1, cools_lava = 1, slippery = 3},
+})
+
+function core.spawn_item(pos, item)
+	-- Take item in any format
+	local stack = ItemStack(item)
+	local obj = core.add_entity(pos, "__builtin:item")
+	-- Don't use obj if it couldn't be added to the map.
+	if obj then
+		obj:get_luaentity():set_item(stack:to_string())
+	end
+	return obj
+end
+
+-- If item_entity_ttl is not set, enity will have default life time
+-- Setting it to -1 disables the feature
+
+local time_to_live = tonumber(core.settings:get("item_entity_ttl")) or 900
+local gravity = tonumber(core.settings:get("movement_gravity")) or 9.81
+local destroy_item = core.settings:get_bool("destroy_item") ~= false
 
 -- water flow functions by QwertyMine3, edited by TenPlus1
 local function to_unit_vector(dir_vector)
@@ -90,29 +112,6 @@ end
 -- END water flow functions
 
 
-function core.spawn_item(pos, item)
-
-	local obj = core.add_entity(pos, "__builtin:item")
-
-	-- Don't use obj if it couldn't be added to the map.
-	if obj then
-		obj:get_luaentity():set_item(ItemStack(item):to_string())
-	end
-
-	return obj
-end
-
-
--- if item_entity_ttl is not set, enity will have default life time
--- setting to -1 disables the feature
-local time_to_live = tonumber(core.setting_get("item_entity_ttl")) or 900
-
--- if destroy_item is 1 then dropped items will burn inside lava
-local destroy_item = tonumber(core.setting_get("destroy_item")) or 1
-
--- entity gravity
-local gravity = tonumber(minetest.setting_get("movement_gravity")) or 9.81
-
 -- particle effects for when item is destroyed
 local function add_effects(pos)
 
@@ -134,24 +133,7 @@ local function add_effects(pos)
 end
 
 
--- check if within map limits (-30911 to 30927)
-local function within_limits(pos)
-
-	if  pos.x > -30913
-	and pos.x <  30928
-	and pos.y > -30913
-	and pos.y <  30928
-	and pos.z > -30913
-	and pos.z <  30928 then
-		return true -- within limits
-	end
-
-	return false -- beyond limits
-end
-
-
 core.register_entity(":__builtin:item", {
-
 	initial_properties = {
 		hp_max = 1,
 		physical = true,
@@ -167,215 +149,134 @@ core.register_entity(":__builtin:item", {
 	},
 
 	itemstring = "",
-	physical_state = true,
+	moving_state = true,
+	slippery_state = false,
 	age = 0,
 
+	set_item = function(self, item)
+		local stack = ItemStack(item or self.itemstring)
+		self.itemstring = stack:to_string()
+		if self.itemstring == "" then
+			-- item not yet known
+			return
+		end
 
-	set_item = function(self, itemstring)
+		-- Backwards compatibility: old clients use the texture
+		-- to get the type of the item
+		local itemname = stack:is_known() and stack:get_name() or "unknown"
 
-		self.itemstring = itemstring
-
-		local stack = ItemStack(itemstring)
-		local itemname = stack:get_name()
 		local max_count = stack:get_stack_max()
 		local count = math.min(stack:get_count(), max_count)
-		local size = 0.2 + 0.1 * (count / max_count)
-
-		if not core.registered_items[itemname] then
-			itemname = "unknown"
-		end
+		local size = 0.2 + 0.1 * (count / max_count) ^ (1 / 3)
+		local coll_height = size * 0.75
 
 		self.object:set_properties({
 			is_visible = true,
 			visual = "wielditem",
 			textures = {itemname},
 			visual_size = {x = size, y = size},
-			collisionbox = {-size, -size, -size, size, size, size},
-			automatic_rotate = math.pi * 0.5,
-			wield_item = itemstring,
+			collisionbox = {-size, -coll_height, -size,
+				size, coll_height, size},
+			selectionbox = {-size, -size, -size, size, size, size},
+			automatic_rotate = math.pi * 0.5 * 0.2 / size,
+			wield_item = self.itemstring,
 			infotext = core.registered_items[itemname].description
 		})
+
 	end,
-
-
-	update_gravity = function(self)
-
-		if not self.physical_state then
-
-			self.object:setacceleration({x = 0, y = 0, z = 0})
-
-			return
-		end
-
-		self.object:setacceleration({x = 0, y = -gravity, z = 0})
-	end,
-
 
 	get_staticdata = function(self)
-
 		return core.serialize({
 			itemstring = self.itemstring,
-			always_collect = self.always_collect,
 			age = self.age,
 			dropped_by = self.dropped_by
 		})
 	end,
 
-
 	on_activate = function(self, staticdata, dtime_s)
-
-		if not self then
-
-			self.object:remove()
-
-			return
-		end
-
 		if string.sub(staticdata, 1, string.len("return")) == "return" then
-
 			local data = core.deserialize(staticdata)
-
 			if data and type(data) == "table" then
-
 				self.itemstring = data.itemstring
-				self.always_collect = data.always_collect
-				self.age = data.age or 0
-				self.age = self.age + dtime_s
+				self.age = (data.age or 0) + dtime_s
 				self.dropped_by = data.dropped_by
 			end
 		else
 			self.itemstring = staticdata
 		end
-
 		self.object:set_armor_groups({immortal = 1})
-		self.object:setvelocity({x = 0, y = 2, z = 0})
-		self:update_gravity()
-		self:set_item(self.itemstring)
+		self.object:set_velocity({x = 0, y = 2, z = 0})
+		self.object:set_acceleration({x = 0, y = -gravity, z = 0})
+		self:set_item()
 	end,
 
-
-	-- moves items from this stack to an other stack
-	try_merge_with = function(self, own_stack, object, obj)
-
-		-- cannot merge with itself
-		if self.age == obj.age then
-			return
+	try_merge_with = function(self, own_stack, object, entity)
+		if self.age == entity.age then
+			-- Can not merge with itself
+			return false
 		end
 
-		-- other item's stack
-		local stack = ItemStack(obj.itemstring)
-
-		-- only merge if items are the same
-		if own_stack:get_name() == stack:get_name()
-		and own_stack:get_meta() == stack:get_meta()
-		and own_stack:get_wear() == stack:get_wear()
-		and stack:get_free_space() > 0 then
-
-			local overflow = false
-			local count = stack:get_count() + own_stack:get_count()
-			local max_count = stack:get_stack_max()
-
-			if count > max_count then
-
-				overflow = true
-				stack:set_count(max_count)
-				count = count - max_count
-				own_stack:set_count(count)
-			else
-				self.itemstring = ""
-				stack:set_count(count)
-			end
-
-			local pos = object:getpos()
-
-			pos.y = pos.y + (count - stack:get_count()) / max_count * 0.15
-
-			object:moveto(pos, false)
-
-			local s, c
-
-			if not overflow then
-
-				obj.itemstring = stack:to_string()
-				s = 0.2 + 0.1 * (count / max_count)
-				c = s
-
-				object:set_properties({
-					visual_size = {x = s, y = s},
-					collisionbox = {-c, -c, -c, c, c, c},
-					wield_item = obj.itemstring
-				})
-
-				self.object:remove()
-
-				return true -- merged ok
-			else
-				s = 0.4
-				c = 0.3
-
-				obj.itemstring = stack:to_string()
-
-				object:set_properties({
-					visual_size = {x = s, y = s},
-					collisionbox = {-c, -c, -c, c, c, c},
-					wield_item = obj.itemstring
-				})
-
-				s = 0.2 + 0.1 * (count / max_count)
-				c = s
-
-				self.itemstring = own_stack:to_string()
-
-				self.object:set_properties({
-					visual_size = {x = s, y = s},
-					collisionbox = {-c, -c, -c, c, c, c},
-					wield_item = self.itemstring
-				})
-			end
+		local stack = ItemStack(entity.itemstring)
+		local name = stack:get_name()
+		if own_stack:get_name() ~= name or
+				own_stack:get_meta() ~= stack:get_meta() or
+				own_stack:get_wear() ~= stack:get_wear() or
+				own_stack:get_free_space() == 0 then
+			-- Can not merge different or full stack
+			return false
 		end
 
-		return false -- merge failed
+		local count = own_stack:get_count()
+		local total_count = stack:get_count() + count
+		local max_count = stack:get_stack_max()
+
+		if total_count > max_count then
+			return false
+		end
+		-- Merge the remote stack into this one
+
+		local pos = object:get_pos()
+		pos.y = pos.y + ((total_count - count) / max_count) * 0.15
+		self.object:move_to(pos)
+
+		self.age = 0 -- Handle as new entity
+		own_stack:set_count(total_count)
+		self:set_item(own_stack)
+
+		entity.itemstring = ""
+		object:remove()
+		return true
 	end,
-
 
 	on_step = function(self, dtime)
-
 		self.age = self.age + dtime
-		if (time_to_live > 0 and self.age > time_to_live)
-		or self.itemstring == "" then
+		if time_to_live > 0 and self.age > time_to_live then
 			self.itemstring = ""
 			self.object:remove()
 			return
 		end
 
-		self.timer = (self.timer or 0) + dtime
-		if self.timer < 0.5 then
-			return
-		end
-		self.timer = 0
-
-		local pos = self.object:getpos()
-		local node = node_ok({
+		local pos = self.object:get_pos()
+		local node = core.get_node_or_nil({
 			x = pos.x,
-			y = pos.y,
+			y = pos.y,-- + self.object:get_properties().collisionbox[2] - 0.05,
 			z = pos.z
 		})
-		local def = core.registered_nodes[node.name]
-
-		-- item inside block, move to vacant space
-		if not def.liquid
-		and node.name ~= "air"
-		and def.drawtype == "normal" then
-
-			local npos = minetest.find_node_near(pos, 1, "air")
-			if npos then
-				self.object:moveto(npos)
-			end
+		-- Delete in 'ignore' nodes
+		if node and node.name == "ignore" then
+			self.itemstring = ""
+			self.object:remove()
 			return
 		end
 
+		local vel = self.object:getvelocity()
+		local def = node and core.registered_nodes[node.name]
+		local is_moving = (def and not def.walkable) or
+			vel.x ~= 0 or vel.y ~= 0 or vel.z ~= 0
+		local is_slippery = false
+
 		-- destroy item when dropped into lava (if enabled)
-		if destroy_item > 0 and def.groups.lava then
+		if destroy_item and def.groups.lava then
 			minetest.sound_play("builtin_item_lava", {
 				pos = pos,
 				max_hear_distance = 6,
@@ -386,90 +287,99 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		-- if inside flowing water then push item
+		-- water flowing
 		if def.liquidtype == "flowing" then
-
 			local vec = quick_flow(pos, node)
-
 			if vec then
-
 				local v = self.object:getvelocity()
-
-				self.object:setvelocity(
-					{x = vec.x, y = v.y, z = vec.z})
+				self.object:setvelocity({x = vec.x, y = v.y, z = vec.z})
 			end
-
 			return
-		else
+		end
 
-			-- if on ice then keep on sliding
-			if self.object:getvelocity().y == 0
-			and minetest.get_node({
-				x = pos.x,
-				y = pos.y - 0.5,
-				z = pos.z}).name ~= "default:ice" then
+		-- item inside block, move to vacant space
+		if not def.liquid
+		and node.name ~= "air"
+		and def.drawtype == "normal" then
+			local npos = minetest.find_node_near(pos, 1, "air")
+			if npos then
+				self.object:moveto(npos)
+			end
+			return
+		end
 
-				self.object:setvelocity({x = 0, y = 0, z = 0})
+		node = core.get_node_or_nil({
+			x = pos.x,
+			y = pos.y + self.object:get_properties().collisionbox[2] - 0.05,
+			z = pos.z
+		})
+		def = node and core.registered_nodes[node.name]
+
+
+		if def and def.walkable then
+			local slippery = core.get_item_group(node.name, "slippery")
+			is_slippery = slippery ~= 0
+			if is_slippery and (math.abs(vel.x) > 0.2 or math.abs(vel.z) > 0.2) then
+				-- Horizontal deceleration
+				local slip_factor = 4.0 / (slippery + 4)
+				self.object:set_acceleration({
+					x = -vel.x * slip_factor,
+					y = 0,
+					z = -vel.z * slip_factor
+				})
+			elseif vel.y == 0 then
+				is_moving = false
 			end
 		end
 
-		-- Ignore is walkable -> stop until the block loaded
-		local entity_fall = not def.walkable
+		if self.moving_state == is_moving and
+				self.slippery_state == is_slippery then
+			-- Do not update anything until the moving state changes
+			return
+		end
 
-		if self.physical_state == entity_fall then
+		self.moving_state = is_moving
+		self.slippery_state = is_slippery
 
-			-- This stops pushing items where water caused them
-			-- to continue flowing from stationary
-			if not entity_fall then
-				self.object:setvelocity({x = 0, y = 0, z = 0})
-			end
+		if is_moving then
+			self.object:set_acceleration({x = 0, y = -gravity, z = 0})
+		else
+			self.object:set_acceleration({x = 0, y = 0, z = 0})
+			self.object:set_velocity({x = 0, y = 0, z = 0})
+		end
 
-			-- Collect the items around to merge with
-			local own_stack = ItemStack(self.itemstring)
-			if own_stack:get_free_space() == 0 then
-				return
-			end
-
-			local objects = core.get_objects_inside_radius(pos, 0.8)
-
-			for k, object in ipairs(objects) do
-
-				local entity = object:get_luaentity()
-
-				if entity and entity.name == "__builtin:item" then
-
-					if self:try_merge_with(own_stack, object, entity) then
-
-						own_stack = ItemStack(self.itemstring)
-
-						if own_stack:get_free_space() == 0 then
-							return
-						end
+		--Only collect items if not moving
+		if is_moving then
+			return
+		end
+		-- Collect the items around to merge with
+		local own_stack = ItemStack(self.itemstring)
+		if own_stack:get_free_space() == 0 then
+			return
+		end
+		local objects = core.get_objects_inside_radius(pos, 1.0)
+		for k, obj in pairs(objects) do
+			local entity = obj:get_luaentity()
+			if entity and entity.name == "__builtin:item" then
+				if self:try_merge_with(own_stack, obj, entity) then
+					own_stack = ItemStack(self.itemstring)
+					if own_stack:get_free_space() == 0 then
+						return
 					end
 				end
 			end
-
-			return
 		end
 	end,
 
-
-	on_punch = function(self, puncher)
-
-		local inv = puncher:get_inventory()
-
+	on_punch = function(self, hitter)
+		local inv = hitter:get_inventory()
 		if inv and self.itemstring ~= "" then
-
 			local left = inv:add_item("main", self.itemstring)
-
 			if left and not left:is_empty() then
-
-				self:set_item(left:to_string())
-
+				self:set_item(left)
 				return
 			end
 		end
-
 		self.itemstring = ""
 		self.object:remove()
 	end,
