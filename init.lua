@@ -276,7 +276,7 @@ core.register_entity(":__builtin:item", {
 		local is_slippery = false
 
 		-- destroy item when dropped into lava (if enabled)
-		if destroy_item and def.groups.lava then
+		if destroy_item and def and def.groups and def.groups.lava then
 			minetest.sound_play("builtin_item_lava", {
 				pos = pos,
 				max_hear_distance = 6,
@@ -288,7 +288,7 @@ core.register_entity(":__builtin:item", {
 		end
 
 		-- water flowing
-		if def.liquidtype == "flowing" then
+		if def and def.liquidtype == "flowing" then
 			local vec = quick_flow(pos, node)
 			if vec then
 				local v = self.object:get_velocity()
@@ -298,7 +298,7 @@ core.register_entity(":__builtin:item", {
 		end
 
 		-- item inside block, move to vacant space
-		if not def.liquid
+		if def and not def.liquid
 		and node.name ~= "air"
 		and def.drawtype == "normal" then
 			local npos = minetest.find_node_near(pos, 1, "air")
