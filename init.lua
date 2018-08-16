@@ -305,7 +305,7 @@ core.register_entity(":__builtin:item", {
 		local custom = core.registered_items[name]
 			and core.registered_items[name].dropped_step
 
-		if custom and custom(self, pos) == false then
+		if custom and custom(self, pos, dtime) == false then
 			return -- skip further checks if false
 		end
 
