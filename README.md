@@ -28,6 +28,7 @@ License: MIT
 dropped_step() examples:
 
 -- if gunpowder dropped on burning tnt or gunpowder then remove
+
 if minetest.registered_items["tnt:gunpowder"] then
 
 	minetest.override_item("tnt:gunpowder", {
@@ -57,6 +58,7 @@ end
 
 -- if 2x mese crystal and 2x crystal spike dropped in pool of water_source
 -- then merge into a single crystal_ingot.
+
 if minetest.registered_items["ethereal:crystal_spike"] then
 
 	minetest.override_item("ethereal:crystal_spike", {
