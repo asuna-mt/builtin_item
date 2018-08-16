@@ -6,13 +6,16 @@ minetest.override_item("default:ice", {
 })
 
 function core.spawn_item(pos, item)
+
 	-- Take item in any format
 	local stack = ItemStack(item)
 	local obj = core.add_entity(pos, "__builtin:item")
+
 	-- Don't use obj if it couldn't be added to the map.
 	if obj then
 		obj:get_luaentity():set_item(stack:to_string())
 	end
+
 	return obj
 end
 
@@ -59,34 +62,29 @@ end
 
 local function quick_flow_logic(node, pos_testing, direction)
 
-	local def = minetest.registered_nodes[node.name]
+	local node_testing = node_ok(pos_testing)
 
-	if def.liquidtype == "flowing" then
+	if minetest.registered_nodes[node_testing.name].liquidtype ~= "flowing"
+	and minetest.registered_nodes[node_testing.name].liquidtype ~= "source" then
+		return 0
+	end
 
-		local node_testing = node_ok(pos_testing)
+	local param2_testing = node_testing.param2
 
-		if minetest.registered_nodes[node_testing.name].liquidtype ~= "flowing"
-		and minetest.registered_nodes[node_testing.name].liquidtype ~= "source" then
-			return 0
+	if param2_testing < node.param2 then
+
+		if (node.param2 - param2_testing) > 6 then
+			return -direction
+		else
+			return direction
 		end
 
-		local param2_testing = node_testing.param2
+	elseif param2_testing > node.param2 then
 
-		if param2_testing < node.param2 then
-
-			if (node.param2 - param2_testing) > 6 then
-				return -direction
-			else
-				return direction
-			end
-
-		elseif param2_testing > node.param2 then
-
-			if (param2_testing - node.param2) > 6 then
-				return direction
-			else
-				return -direction
-			end
+		if (param2_testing - node.param2) > 6 then
+			return direction
+		else
+			return -direction
 		end
 	end
 
@@ -134,6 +132,7 @@ end
 
 
 core.register_entity(":__builtin:item", {
+
 	initial_properties = {
 		hp_max = 1,
 		physical = true,
@@ -154,8 +153,11 @@ core.register_entity(":__builtin:item", {
 	age = 0,
 
 	set_item = function(self, item)
+
 		local stack = ItemStack(item or self.itemstring)
+
 		self.itemstring = stack:to_string()
+
 		if self.itemstring == "" then
 			-- item not yet known
 			return
@@ -164,7 +166,6 @@ core.register_entity(":__builtin:item", {
 		-- Backwards compatibility: old clients use the texture
 		-- to get the type of the item
 		local itemname = stack:is_known() and stack:get_name() or "unknown"
-
 		local max_count = stack:get_stack_max()
 		local count = math.min(stack:get_count(), max_count)
 		local size = 0.2 + 0.1 * (count / max_count) ^ (1 / 3)
@@ -178,7 +179,7 @@ core.register_entity(":__builtin:item", {
 			collisionbox = {-size, -coll_height, -size,
 				size, coll_height, size},
 			selectionbox = {-size, -size, -size, size, size, size},
-			automatic_rotate = math.pi * 0.5 * 0.2 / size,
+			automatic_rotate = 0.314 / size,
 			wield_item = self.itemstring,
 			infotext = core.registered_items[itemname].description
 		})
@@ -186,6 +187,7 @@ core.register_entity(":__builtin:item", {
 	end,
 
 	get_staticdata = function(self)
+
 		return core.serialize({
 			itemstring = self.itemstring,
 			age = self.age,
@@ -194,8 +196,11 @@ core.register_entity(":__builtin:item", {
 	end,
 
 	on_activate = function(self, staticdata, dtime_s)
+
 		if string.sub(staticdata, 1, string.len("return")) == "return" then
+
 			local data = core.deserialize(staticdata)
+
 			if data and type(data) == "table" then
 				self.itemstring = data.itemstring
 				self.age = (data.age or 0) + dtime_s
@@ -204,6 +209,7 @@ core.register_entity(":__builtin:item", {
 		else
 			self.itemstring = staticdata
 		end
+
 		self.object:set_armor_groups({immortal = 1})
 		self.object:set_velocity({x = 0, y = 2, z = 0})
 		self.object:set_acceleration({x = 0, y = -gravity, z = 0})
@@ -211,6 +217,7 @@ core.register_entity(":__builtin:item", {
 	end,
 
 	try_merge_with = function(self, own_stack, object, entity)
+
 		if self.age == entity.age then
 			-- Can not merge with itself
 			return false
@@ -218,10 +225,11 @@ core.register_entity(":__builtin:item", {
 
 		local stack = ItemStack(entity.itemstring)
 		local name = stack:get_name()
-		if own_stack:get_name() ~= name or
-				own_stack:get_meta() ~= stack:get_meta() or
-				own_stack:get_wear() ~= stack:get_wear() or
-				own_stack:get_free_space() == 0 then
+
+		if own_stack:get_name() ~= name
+		or own_stack:get_meta() ~= stack:get_meta()
+		or own_stack:get_wear() ~= stack:get_wear()
+		or own_stack:get_free_space() == 0 then
 			-- Can not merge different or full stack
 			return false
 		end
@@ -233,67 +241,81 @@ core.register_entity(":__builtin:item", {
 		if total_count > max_count then
 			return false
 		end
-		-- Merge the remote stack into this one
 
+		-- Merge the remote stack into this one
 		local pos = object:get_pos()
 		pos.y = pos.y + ((total_count - count) / max_count) * 0.15
-		self.object:move_to(pos)
 
+		self.object:move_to(pos)
 		self.age = 0 -- Handle as new entity
+
 		own_stack:set_count(total_count)
 		self:set_item(own_stack)
 
 		entity.itemstring = ""
 		object:remove()
+
 		return true
 	end,
 
 	on_step = function(self, dtime)
+
+		local pos = self.object:get_pos()
+
 		self.age = self.age + dtime
+
 		if time_to_live > 0 and self.age > time_to_live then
+
 			self.itemstring = ""
 			self.object:remove()
+
+			add_effects(pos)
+
 			return
 		end
 
-		local pos = self.object:get_pos()
-		local node = core.get_node_or_nil({
-			x = pos.x,
-			y = pos.y,-- + self.object:get_properties().collisionbox[2] - 0.05,
-			z = pos.z
-		})
+		local node = core.get_node_or_nil(pos)
+
 		-- Delete in 'ignore' nodes
 		if node and node.name == "ignore" then
+
 			self.itemstring = ""
 			self.object:remove()
+
 			return
 		end
 
 		local vel = self.object:get_velocity()
 		local def = node and core.registered_nodes[node.name]
+		local is_slippery = false
 		local is_moving = (def and not def.walkable) or
 			vel.x ~= 0 or vel.y ~= 0 or vel.z ~= 0
-		local is_slippery = false
 
 		-- destroy item when dropped into lava (if enabled)
 		if destroy_item and def and def.groups and def.groups.lava then
+
 			minetest.sound_play("builtin_item_lava", {
 				pos = pos,
 				max_hear_distance = 6,
 				gain = 0.5
 			})
-			add_effects(pos)
+
+			self.itemstring = ""
 			self.object:remove()
+
+			add_effects(pos)
+
 			return
 		end
 
 		-- water flowing
 		if def and def.liquidtype == "flowing" then
+
 			local vec = quick_flow(pos, node)
-			if vec then
-				local v = self.object:get_velocity()
-				self.object:set_velocity({x = vec.x, y = v.y, z = vec.z})
-			end
+			local v = self.object:get_velocity()
+
+			self.object:set_velocity({x = vec.x, y = v.y, z = vec.z})
+
 			return
 		end
 
@@ -301,10 +323,13 @@ core.register_entity(":__builtin:item", {
 		if def and not def.liquid
 		and node.name ~= "air"
 		and def.drawtype == "normal" then
+
 			local npos = minetest.find_node_near(pos, 1, "air")
+
 			if npos then
 				self.object:moveto(npos)
 			end
+
 			return
 		end
 
@@ -313,15 +338,21 @@ core.register_entity(":__builtin:item", {
 			y = pos.y + self.object:get_properties().collisionbox[2] - 0.05,
 			z = pos.z
 		})
+
 		def = node and core.registered_nodes[node.name]
 
 
 		if def and def.walkable then
+
 			local slippery = core.get_item_group(node.name, "slippery")
+
 			is_slippery = slippery ~= 0
+
 			if is_slippery and (math.abs(vel.x) > 0.2 or math.abs(vel.z) > 0.2) then
+
 				-- Horizontal deceleration
 				local slip_factor = 4.0 / (slippery + 4)
+
 				self.object:set_acceleration({
 					x = -vel.x * slip_factor,
 					y = 0,
@@ -332,8 +363,8 @@ core.register_entity(":__builtin:item", {
 			end
 		end
 
-		if self.moving_state == is_moving and
-				self.slippery_state == is_slippery then
+		if self.moving_state == is_moving
+		and self.slippery_state == is_slippery then
 			-- Do not update anything until the moving state changes
 			return
 		end
@@ -352,17 +383,26 @@ core.register_entity(":__builtin:item", {
 		if is_moving then
 			return
 		end
+
 		-- Collect the items around to merge with
 		local own_stack = ItemStack(self.itemstring)
+
 		if own_stack:get_free_space() == 0 then
 			return
 		end
+
 		local objects = core.get_objects_inside_radius(pos, 1.0)
+
 		for k, obj in pairs(objects) do
+
 			local entity = obj:get_luaentity()
+
 			if entity and entity.name == "__builtin:item" then
+
 				if self:try_merge_with(own_stack, obj, entity) then
+
 					own_stack = ItemStack(self.itemstring)
+
 					if own_stack:get_free_space() == 0 then
 						return
 					end
@@ -372,14 +412,19 @@ core.register_entity(":__builtin:item", {
 	end,
 
 	on_punch = function(self, hitter)
+
 		local inv = hitter:get_inventory()
+
 		if inv and self.itemstring ~= "" then
+
 			local left = inv:add_item("main", self.itemstring)
+
 			if left and not left:is_empty() then
 				self:set_item(left)
 				return
 			end
 		end
+
 		self.itemstring = ""
 		self.object:remove()
 	end,
