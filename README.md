@@ -8,7 +8,17 @@ Features:
 - Items are removed after 900 seconds or the time that is specified by
    remove_items in minetest.conf (-1 disables it)
 - Particle effects added
-- Dropped items keep sliding when on ice
+- Dropped items slide on nodes with {slippery} groups
 - Items stuck inside solid nodes move to nearest empty space
+- Added 'dropped_step(self, pos)' function for special features for dropped item
+   'self.node_inside' contains node table that item is inside
+   'self.def_inside' contains node definition for above
+   'self.node_under' contains node table that is below item
+   'self.def_under' contains node definition for above
+   'self.age' holds age of dropped item in seconds
+   'self.itemstring' contains itemstring e.g. "default:dirt", "default:ice 20"
+   'pos' holds position of dropped item
+
+   return false to skip further checks by builtin_item
 
 License: MIT

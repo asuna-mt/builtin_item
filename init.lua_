@@ -2,14 +2,16 @@
 
 -- override ice to make slippery for 0.4.16
 minetest.override_item("default:ice", {
-	groups = {cracky = 3, puts_out_fire = 1, cools_lava = 1, slippery = 3}})
-
+	groups = {cracky = 3, puts_out_fire = 1, cools_lava = 1, slippery = 3},
+})
 
 function core.spawn_item(pos, item)
 
+	-- Take item in any format
 	local stack = ItemStack(item)
 	local obj = core.add_entity(pos, "__builtin:item")
 
+	-- Don't use obj if it couldn't be added to the map.
 	if obj then
 		obj:get_luaentity():set_item(stack:to_string())
 	end
@@ -17,14 +19,12 @@ function core.spawn_item(pos, item)
 	return obj
 end
 
-
 -- If item_entity_ttl is not set, enity will have default life time
 -- Setting it to -1 disables the feature
 
 local time_to_live = tonumber(core.settings:get("item_entity_ttl")) or 900
 local gravity = tonumber(core.settings:get("movement_gravity")) or 9.81
 local destroy_item = core.settings:get_bool("destroy_item") ~= false
-
 
 -- water flow functions by QwertyMine3, edited by TenPlus1
 local function to_unit_vector(dir_vector)
@@ -159,9 +159,12 @@ core.register_entity(":__builtin:item", {
 		self.itemstring = stack:to_string()
 
 		if self.itemstring == "" then
+			-- item not yet known
 			return
 		end
 
+		-- Backwards compatibility: old clients use the texture
+		-- to get the type of the item
 		local itemname = stack:is_known() and stack:get_name() or "unknown"
 		local max_count = stack:get_stack_max()
 		local count = math.min(stack:get_count(), max_count)
@@ -216,7 +219,8 @@ core.register_entity(":__builtin:item", {
 	try_merge_with = function(self, own_stack, object, entity)
 
 		if self.age == entity.age then
-			return false -- Can not merge with itself
+			-- Can not merge with itself
+			return false
 		end
 
 		local stack = ItemStack(entity.itemstring)
@@ -226,7 +230,8 @@ core.register_entity(":__builtin:item", {
 		or own_stack:get_meta() ~= stack:get_meta()
 		or own_stack:get_wear() ~= stack:get_wear()
 		or own_stack:get_free_space() == 0 then
-			return false -- Can not merge different or full stack
+			-- Can not merge different or full stack
+			return false
 		end
 
 		local count = own_stack:get_count()
@@ -269,27 +274,7 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		-- get nodes every 1/4 second
-		self.timer = (self.timer or 0) + dtime
-
-		if self.timer > 0.25 or not self.node_inside then
-
-			self.node_inside = minetest.get_node_or_nil(pos)
-			self.def_inside = self.node_inside
-					and core.registered_nodes[self.node_inside.name]
-
-			self.node_under = minetest.get_node_or_nil({
-				x = pos.x,
-				y = pos.y + self.object:get_properties().collisionbox[2] - 0.05,
-				z = pos.z
-			})
-			self.def_under = self.node_under
-					and core.registered_nodes[self.node_under.name]
-
-			self.timer = 0
-		end
-
-		local node = self.node_inside
+		local node = core.get_node_or_nil(pos)
 
 		-- Delete in 'ignore' nodes
 		if node and node.name == "ignore" then
@@ -300,17 +285,8 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		-- do custom step function
-		local name = ItemStack(self.itemstring):get_name() or ""
-		local custom = core.registered_items[name]
-			and core.registered_items[name].dropped_step
-
-		if custom and custom(self, pos) == false then
-			return -- skip further checks if false
-		end
-
 		local vel = self.object:get_velocity()
-		local def = self.def_inside
+		local def = node and core.registered_nodes[node.name]
 		local is_slippery = false
 		local is_moving = (def and not def.walkable) or
 			vel.x ~= 0 or vel.y ~= 0 or vel.z ~= 0
@@ -354,14 +330,17 @@ core.register_entity(":__builtin:item", {
 				self.object:moveto(npos)
 			end
 
-			self.node_inside = nil -- force get_node
-
 			return
 		end
 
-		node = self.node_under
+		node = core.get_node_or_nil({
+			x = pos.x,
+			y = pos.y + self.object:get_properties().collisionbox[2] - 0.05,
+			z = pos.z
+		})
 
-		def = self.def_under
+		def = node and core.registered_nodes[node.name]
+
 
 		if def and def.walkable then
 
@@ -379,7 +358,6 @@ core.register_entity(":__builtin:item", {
 					y = 0,
 					z = -vel.z * slip_factor
 				})
-
 			elseif vel.y == 0 then
 				is_moving = false
 			end
@@ -387,7 +365,8 @@ core.register_entity(":__builtin:item", {
 
 		if self.moving_state == is_moving
 		and self.slippery_state == is_slippery then
-			return -- No further updates until moving state changes
+			-- Do not update anything until the moving state changes
+			return
 		end
 
 		self.moving_state = is_moving
