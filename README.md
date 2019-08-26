@@ -76,7 +76,7 @@ if minetest.registered_items["ethereal:crystal_spike"] then
 
 			local objs = core.get_objects_inside_radius(pos, 0.8)
 
-			if not objs or #objs < 2 or #objs > 2 then return end
+			if not objs or #objs ~= 2 then return end
 
 			local crystal, mese, ent = nil, nil, nil
 

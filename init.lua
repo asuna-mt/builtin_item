@@ -351,7 +351,7 @@ core.register_entity(":__builtin:item", {
 			local npos = minetest.find_node_near(pos, 1, "air")
 
 			if npos then
-				self.object:moveto(npos)
+				self.object:move_to(npos)
 			end
 
 			self.node_inside = nil -- force get_node
