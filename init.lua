@@ -166,15 +166,14 @@ core.register_entity(":__builtin:item", {
 		local max_count = stack:get_stack_max()
 		local count = math.min(stack:get_count(), max_count)
 		local size = 0.2 + 0.1 * (count / max_count) ^ (1 / 3)
-		local coll_height = size * 0.75
+		local col_height = size * 0.75
 
 		self.object:set_properties({
 			is_visible = true,
 			visual = "wielditem",
 			textures = {itemname},
 			visual_size = {x = size, y = size},
-			collisionbox = {-size, -coll_height, -size,
-				size, coll_height, size},
+			collisionbox = {-size, -col_height, -size, size, col_height, size},
 			selectionbox = {-size, -size, -size, size, size, size},
 			automatic_rotate = 0.314 / size,
 			wield_item = self.itemstring,
@@ -344,9 +343,9 @@ core.register_entity(":__builtin:item", {
 		end
 
 		-- item inside block, move to vacant space
-		if def and not def.liquid
-		and node.name ~= "air"
-		and def.drawtype == "normal" then
+		if def and (def.walkable == nil or def.walkable == true)
+		and (def.collision_box == nil or def.collision_box.type == "regular")
+		and (def.node_box == nil or def.node_box.type == "regular") then
 
 			local npos = minetest.find_node_near(pos, 1, "air")
 
@@ -359,10 +358,12 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
+		-- Switch locals to node under
 		node = self.node_under
-
 		def = self.def_under
 
+
+		-- Slippery node check
 		if def and def.walkable then
 
 			local slippery = core.get_item_group(node.name, "slippery")
