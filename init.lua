@@ -167,6 +167,8 @@ core.register_entity(":__builtin:item", {
 		local count = math.min(stack:get_count(), max_count)
 		local size = 0.2 + 0.1 * (count / max_count) ^ (1 / 3)
 		local col_height = size * 0.75
+		local def = core.registered_nodes[itemname]
+		local glow = def and def.light_source
 
 		self.object:set_properties({
 			is_visible = true,
@@ -177,6 +179,7 @@ core.register_entity(":__builtin:item", {
 			selectionbox = {-size, -size, -size, size, size, size},
 			automatic_rotate = 0.314 / size,
 			wield_item = self.itemstring,
+			glow = glow,
 			infotext = core.registered_items[itemname].description
 		})
 
