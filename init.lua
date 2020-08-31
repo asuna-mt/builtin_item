@@ -169,6 +169,20 @@ core.register_entity(":__builtin:item", {
 		local col_height = size * 0.75
 		local def = core.registered_nodes[itemname]
 		local glow = def and def.light_source
+		local c1, c2 = "",""
+
+		if not(stack:get_count() == 1) then
+			c1 = " x"..tostring(stack:get_count())
+			c2 = " "..tostring(stack:get_count())
+		end
+
+		local name1 = stack:get_meta():get_string("description")
+
+		if name1 == "" then
+			name = core.registered_items[itemname].description
+		else
+			name = name1
+		end
 
 		self.object:set_properties({
 			is_visible = true,
@@ -180,7 +194,7 @@ core.register_entity(":__builtin:item", {
 			automatic_rotate = 0.314 / size,
 			wield_item = self.itemstring,
 			glow = glow,
-			infotext = core.registered_items[itemname].description
+			infotext = name..c1.."\n("..itemname..c2..")"
 		})
 
 	end,
