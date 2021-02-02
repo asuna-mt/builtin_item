@@ -177,6 +177,7 @@ core.register_entity(":__builtin:item", {
 		end
 
 		local name1 = stack:get_meta():get_string("description")
+		local name
 
 		if name1 == "" then
 			name = core.registered_items[itemname].description
@@ -194,7 +195,7 @@ core.register_entity(":__builtin:item", {
 			automatic_rotate = 0.314 / size,
 			wield_item = self.itemstring,
 			glow = glow,
-			infotext = name..c1.."\n("..itemname..c2..")"
+			infotext = name .. c1 .. "\n(" .. itemname .. c2 .. ")"
 		})
 
 	end,
