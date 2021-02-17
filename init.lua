@@ -1,8 +1,10 @@
 -- Minetest: builtin/item_entity.lua
 
 -- override ice to make slippery for 0.4.16
-minetest.override_item("default:ice", {
-	groups = {cracky = 3, puts_out_fire = 1, cools_lava = 1, slippery = 3}})
+if not minetest.raycast then
+	minetest.override_item("default:ice", {
+		groups = {cracky = 3, puts_out_fire = 1, cools_lava = 1, slippery = 3}})
+end
 
 
 function core.spawn_item(pos, item)
@@ -27,23 +29,28 @@ local destroy_item = core.settings:get_bool("destroy_item") ~= false
 
 
 -- water flow functions by QwertyMine3, edited by TenPlus1
+local inv_roots = {
+	[0] = 1
+}
+
 local function to_unit_vector(dir_vector)
 
-	local inv_roots = {
-		[0] = 1,
-		[1] = 1,
-		[2] = 0.70710678118655,
-		[4] = 0.5,
-		[5] = 0.44721359549996,
-		[8] = 0.35355339059327
-	}
-
 	local sum = dir_vector.x * dir_vector.x + dir_vector.z * dir_vector.z
+	local invr_sum = 0
+
+	-- find inverse square root if possible
+	if inv_roots[sum] ~= nil then
+		invr_sum = inv_roots[sum]
+	else
+		-- not found, compute and save the inverse square root
+		invr_sum = 1.0 / math.sqrt(sum)
+		inv_roots[sum] = invr_sum
+	end
 
 	return {
-		x = dir_vector.x * inv_roots[sum],
+		x = dir_vector.x * invr_sum,
 		y = dir_vector.y,
-		z = dir_vector.z * inv_roots[sum]
+		z = dir_vector.z * invr_sum
 	}
 end
 
@@ -63,6 +70,11 @@ end
 local function quick_flow_logic(node, pos_testing, direction)
 
 	local node_testing = node_ok(pos_testing)
+	local param2 = node.param2
+
+	if not minetest.registered_nodes[node.name].groups.liquid then
+		param2 = 0
+	end
 
 	if minetest.registered_nodes[node_testing.name].liquidtype ~= "flowing"
 	and minetest.registered_nodes[node_testing.name].liquidtype ~= "source" then
@@ -71,17 +83,17 @@ local function quick_flow_logic(node, pos_testing, direction)
 
 	local param2_testing = node_testing.param2
 
-	if param2_testing < node.param2 then
+	if param2_testing < param2 then
 
-		if (node.param2 - param2_testing) > 6 then
+		if (param2 - param2_testing) > 6 then
 			return -direction
 		else
 			return direction
 		end
 
-	elseif param2_testing > node.param2 then
+	elseif param2_testing > param2 then
 
-		if (param2_testing - node.param2) > 6 then
+		if (param2_testing - param2) > 6 then
 			return direction
 		else
 			return -direction
@@ -92,13 +104,12 @@ local function quick_flow_logic(node, pos_testing, direction)
 end
 
 
+-- reciprocal of the length of an unit square's diagonal
+local DIAG_WEIGHT = 2 / math.sqrt(2)
+
 local function quick_flow(pos, node)
 
-	if not minetest.registered_nodes[node.name].groups.liquid then
-		return {x = 0, y = 0, z = 0}
-	end
-
-	local x, z = 0, 0
+	local x, z = 0.0, 0.0
 
 	x = x + quick_flow_logic(node, {x = pos.x - 1, y = pos.y, z = pos.z},-1)
 	x = x + quick_flow_logic(node, {x = pos.x + 1, y = pos.y, z = pos.z}, 1)
@@ -130,6 +141,10 @@ local function add_effects(pos)
 	})
 end
 
+
+local water_force = 0.8
+local water_friction = 0.8
+local dry_friction = 2.5
 
 core.register_entity(":__builtin:item", {
 
@@ -270,7 +285,7 @@ core.register_entity(":__builtin:item", {
 		return true
 	end,
 
-	on_step = function(self, dtime)
+	on_step = function(self, dtime, moveresult)
 
 		local pos = self.object:get_pos()
 
@@ -295,11 +310,22 @@ core.register_entity(":__builtin:item", {
 			self.def_inside = self.node_inside
 					and core.registered_nodes[self.node_inside.name]
 
-			self.node_under = minetest.get_node_or_nil({
-				x = pos.x,
-				y = pos.y + self.object:get_properties().collisionbox[2] - 0.05,
-				z = pos.z
-			})
+			-- get ground node for collision
+			self.node_under = nil
+
+			if moveresult.touching_ground then
+
+				for _, info in ipairs(moveresult.collisions) do
+
+					if info.axis == "y" then
+
+						self.node_under = core.get_node(info.node_pos)
+
+						break
+					end
+				end
+			end
+
 			self.def_under = self.node_under
 					and core.registered_nodes[self.node_under.name]
 
@@ -352,10 +378,39 @@ core.register_entity(":__builtin:item", {
 		-- water flowing
 		if def and def.liquidtype == "flowing" then
 
+			-- force applies on acceleration over time, thus multiply
+			local force = water_force * dtime
+			-- friction applies on velocity over time,     thus exponentiate
+			local friction = (1.0 + water_friction) ^ dtime
+
+			-- get flow velocity and current vel/acc state
 			local vec = quick_flow(pos, node)
+			local a = self.object:get_acceleration()
+
+			self.object:set_acceleration({
+				x = a.x + vec.x * force,
+				y = a.y,
+				z = a.z + vec.z * force
+			})
+
+			-- apply friction to prevent items going too fast, and also to make
+			-- water flow override previous horizontal momentum more quickly
+
 			local v = self.object:get_velocity()
 
-			self.object:set_velocity({x = vec.x, y = v.y, z = vec.z})
+			-- adjust friction for going against the current
+			local v_horz = { x = v.x, y = 0, z = v.z }
+			local v_dir = to_unit_vector(v_horz)
+			local flow_dot = v_dir.x * vec.x + v_dir.y * vec.y
+
+			-- also maps flow_dot from [-1,0] to [0.5,2.5]
+			friction = 1.0 + ((friction - 1.0) * (flow_dot + 1.5))
+
+			self.object:set_velocity({
+				x = v.x / friction,
+				y = v.y / friction,
+				z = v.z / friction
+			})
 
 			return
 		end
@@ -412,11 +467,26 @@ core.register_entity(":__builtin:item", {
 		self.moving_state = is_moving
 		self.slippery_state = is_slippery
 
+		local a_curr = self.object:get_acceleration()
+		local v_curr = self.object:get_velocity()
+
 		if is_moving then
-			self.object:set_acceleration({x = 0, y = -gravity, z = 0})
+
+			self.object:set_acceleration({
+				x = a_curr.x,
+				y = a_curr.y - gravity,
+				z = a_curr.z
+			})
 		else
 			self.object:set_acceleration({x = 0, y = 0, z = 0})
-			self.object:set_velocity({x = 0, y = 0, z = 0})
+
+			-- preserve *some* velocity so items don't get stuck on the very ledges
+			-- of nodes once they move just enough to leave the hitbox of flowing water
+			self.object:set_velocity({
+				x = v_curr.x / dry_friction,
+				y = v_curr.y / dry_friction,
+				z = v_curr.z / dry_friction
+			})
 		end
 
 		--Only collect items if not moving

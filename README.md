@@ -4,7 +4,7 @@ edited by TenPlus1
 
 Features:
 - Items are destroyed by lava
-- Items are pushed along by flowing water (thanks to QwertyMine3)
+- Items are pushed along by flowing water (thanks to QwertyMine3 and Gustavo6046)
 - Items are removed after 900 seconds or the time that is specified by
    remove_items in minetest.conf (-1 disables it)
 - Particle effects added
