@@ -22,30 +22,28 @@ end
 
 -- If item_entity_ttl is not set, enity will have default life time
 -- Setting it to -1 disables the feature
+
 local time_to_live = tonumber(core.settings:get("item_entity_ttl")) or 900
 local gravity = tonumber(core.settings:get("movement_gravity")) or 9.81
 local destroy_item = core.settings:get_bool("destroy_item") ~= false
 
 
--- localize some math functions
-local abs = math.abs
-local sqrt = math.sqrt
-
-
--- water flow functions by QwertyMine3, edited by TenPlus1 and Gustavo6046
-local inv_roots = {[0] = 1}
+-- water flow functions by QwertyMine3, edited by TenPlus1
+local inv_roots = {
+	[0] = 1
+}
 
 local function to_unit_vector(dir_vector)
 
 	local sum = dir_vector.x * dir_vector.x + dir_vector.z * dir_vector.z
-	local invr_sum
+	local invr_sum = 0
 
 	-- find inverse square root if possible
 	if inv_roots[sum] ~= nil then
 		invr_sum = inv_roots[sum]
 	else
 		-- not found, compute and save the inverse square root
-		invr_sum = 1.0 / sqrt(sum)
+		invr_sum = 1.0 / math.sqrt(sum)
 		inv_roots[sum] = invr_sum
 	end
 
@@ -106,6 +104,9 @@ local function quick_flow_logic(node, pos_testing, direction)
 end
 
 
+-- reciprocal of the length of an unit square's diagonal
+local DIAG_WEIGHT = 2 / math.sqrt(2)
+
 local function quick_flow(pos, node)
 
 	local x, z = 0.0, 0.0
@@ -117,6 +118,7 @@ local function quick_flow(pos, node)
 
 	return to_unit_vector({x = x, y = 0, z = z})
 end
+-- END water flow functions
 
 
 -- particle effects for when item is destroyed
@@ -139,19 +141,10 @@ local function add_effects(pos)
 	})
 end
 
--- print vector, helpful when debugging
-local function vec_print(head, vec)
-	print(head, vec.x, vec.y, vec.z)
-end
 
-
-local water_force = tonumber(minetest.settings:get("builtin_item.waterflow_force") or 1.6)
-local water_drag = tonumber(minetest.settings:get("builtin_item.waterflow_drag") or 0.8)
-local dry_friction = tonumber(minetest.settings:get("builtin_item.friction_dry") or 2.5)
-local air_drag = tonumber(minetest.settings:get("builtin_item.air_drag") or 0.4)
-local items_collect_on_slippery = tonumber(
-		minetest.settings:get("builtin_item.items_collect_on_slippery") or 1) ~= 0
-
+local water_force = 0.8
+local water_friction = 0.8
+local dry_friction = 2.5
 
 core.register_entity(":__builtin:item", {
 
@@ -166,16 +159,13 @@ core.register_entity(":__builtin:item", {
 		spritediv = {x = 1, y = 1},
 		initial_sprite_basepos = {x = 0, y = 0},
 		is_visible = false,
-		infotext = ""
+		infotext = "",
 	},
 
 	itemstring = "",
-	falling_state = true,
+	moving_state = true,
 	slippery_state = false,
-	waterflow_state = false,
 	age = 0,
-
-	accel = {x = 0, y = 0, z = 0},
 
 	set_item = function(self, item)
 
@@ -197,8 +187,8 @@ core.register_entity(":__builtin:item", {
 		local c1, c2 = "",""
 
 		if not(stack:get_count() == 1) then
-			c1 = " x" .. tostring(stack:get_count())
-			c2 = " " .. tostring(stack:get_count())
+			c1 = " x"..tostring(stack:get_count())
+			c2 = " "..tostring(stack:get_count())
 		end
 
 		local name1 = stack:get_meta():get_string("description")
@@ -210,14 +200,11 @@ core.register_entity(":__builtin:item", {
 			name = name1
 		end
 
-		-- small random size bias to counter Z-fighting
-		local bias = math.random() * 1e-3
-
 		self.object:set_properties({
 			is_visible = true,
 			visual = "wielditem",
 			textures = {itemname},
-			visual_size = {x = size + bias, y = size + bias, z = size + bias},
+			visual_size = {x = size, y = size},
 			collisionbox = {-size, -col_height, -size, size, col_height, size},
 			selectionbox = {-size, -size, -size, size, size, size},
 			automatic_rotate = 0.314 / size,
@@ -230,13 +217,11 @@ core.register_entity(":__builtin:item", {
 
 	get_staticdata = function(self)
 
-		local data = {
+		return core.serialize({
 			itemstring = self.itemstring,
 			age = self.age,
 			dropped_by = self.dropped_by
-		}
-
-		return core.serialize(data)
+		})
 	end,
 
 	on_activate = function(self, staticdata, dtime_s)
@@ -255,6 +240,8 @@ core.register_entity(":__builtin:item", {
 		end
 
 		self.object:set_armor_groups({immortal = 1})
+		self.object:set_velocity({x = 0, y = 2, z = 0})
+		self.object:set_acceleration({x = 0, y = -gravity, z = 0})
 		self:set_item()
 	end,
 
@@ -284,23 +271,11 @@ core.register_entity(":__builtin:item", {
 
 		-- Merge the remote stack into this one
 		local pos = object:get_pos()
-
 		pos.y = pos.y + ((total_count - count) / max_count) * 0.15
 
 		self.object:move_to(pos)
 		self.age = 0 -- Handle as new entity
 
-		-- Merge velocities
-		local vel_a = self.object:get_velocity()
-		local vel_b = object:get_velocity()
-
-		self.object:set_velocity({
-			x = (vel_a.x + vel_b.x) / 2,
-			y = (vel_a.y + vel_b.y) / 2,
-			z = (vel_a.z + vel_b.z) / 2
-		})
-
-		-- Merge stacks
 		own_stack:set_count(total_count)
 		self:set_item(own_stack)
 
@@ -310,9 +285,21 @@ core.register_entity(":__builtin:item", {
 		return true
 	end,
 
-	step_update_node_state = function(self, moveresult, dtime)
+	on_step = function(self, dtime, moveresult)
 
 		local pos = self.object:get_pos()
+
+		self.age = self.age + dtime
+
+		if time_to_live > 0 and self.age > time_to_live then
+
+			self.itemstring = ""
+			self.object:remove()
+
+			add_effects(pos)
+
+			return
+		end
 
 		-- get nodes every 1/4 second
 		self.timer = (self.timer or 0) + dtime
@@ -325,7 +312,6 @@ core.register_entity(":__builtin:item", {
 
 			-- get ground node for collision
 			self.node_under = nil
-			self.falling_state = true
 
 			if moveresult.touching_ground then
 
@@ -334,7 +320,6 @@ core.register_entity(":__builtin:item", {
 					if info.axis == "y" then
 
 						self.node_under = core.get_node(info.node_pos)
-						self.falling_state = false
 
 						break
 					end
@@ -342,17 +327,12 @@ core.register_entity(":__builtin:item", {
 			end
 
 			self.def_under = self.node_under
-				and core.registered_nodes[self.node_under.name]
+					and core.registered_nodes[self.node_under.name]
 
 			self.timer = 0
 		end
-	end,
 
-	step_node_inside_checks = function(self)
-
-		local pos = self.object:get_pos()
 		local node = self.node_inside
-		local def = self.def_inside
 
 		-- Delete in 'ignore' nodes
 		if node and node.name == "ignore" then
@@ -360,22 +340,23 @@ core.register_entity(":__builtin:item", {
 			self.itemstring = ""
 			self.object:remove()
 
-			return true
+			return
 		end
 
-		-- item inside block, move to vacant space
-		if def and (def.walkable == nil or def.walkable == true)
-		and (def.collision_box == nil or def.collision_box.type == "regular")
-		and (def.node_box == nil or def.node_box.type == "regular") then
+		-- do custom step function
+		local name = ItemStack(self.itemstring):get_name() or ""
+		local custom = core.registered_items[name]
+			and core.registered_items[name].dropped_step
 
-			local npos = minetest.find_node_near(pos, 1, "air")
-
-			if npos then
-				self.object:move_to(npos)
-			end
-
-			self.node_inside = nil -- force get_node
+		if custom and custom(self, pos, dtime) == false then
+			return -- skip further checks if false
 		end
+
+		local vel = self.object:get_velocity()
+		local def = self.def_inside
+		local is_slippery = false
+		local is_moving = (def and not def.walkable) or
+			vel.x ~= 0 or vel.y ~= 0 or vel.z ~= 0
 
 		-- destroy item when dropped into lava (if enabled)
 		if destroy_item and def and def.groups and def.groups.lava then
@@ -391,156 +372,125 @@ core.register_entity(":__builtin:item", {
 
 			add_effects(pos)
 
-			return true
-		end
-
-		return false
-	end,
-
-	step_check_slippery = function(self)
-
-		-- don't check for slippery ground if we're not on
-		-- any ground to begin with
-		local node = self.node_under
-		local def = self.def_under
-
-		if self.falling_state or not node then
-			self.slippery_state = false
 			return
 		end
 
-		if node and def and def.walkable then
+		-- water flowing
+		if def and def.liquidtype == "flowing" then
+
+			-- force applies on acceleration over time, thus multiply
+			local force = water_force * dtime
+			-- friction applies on velocity over time,     thus exponentiate
+			local friction = (1.0 + water_friction) ^ dtime
+
+			-- get flow velocity and current vel/acc state
+			local vec = quick_flow(pos, node)
+			local a = self.object:get_acceleration()
+
+			self.object:set_acceleration({
+				x = a.x + vec.x * force,
+				y = a.y,
+				z = a.z + vec.z * force
+			})
+
+			-- apply friction to prevent items going too fast, and also to make
+			-- water flow override previous horizontal momentum more quickly
+
+			local v = self.object:get_velocity()
+
+			-- adjust friction for going against the current
+			local v_horz = { x = v.x, y = 0, z = v.z }
+			local v_dir = to_unit_vector(v_horz)
+			local flow_dot = v_dir.x * vec.x + v_dir.y * vec.y
+
+			-- also maps flow_dot from [-1,0] to [0.5,2.5]
+			friction = 1.0 + ((friction - 1.0) * (flow_dot + 1.5))
+
+			self.object:set_velocity({
+				x = v.x / friction,
+				y = v.y / friction,
+				z = v.z / friction
+			})
+
+			return
+		end
+
+		-- item inside block, move to vacant space
+		if def and (def.walkable == nil or def.walkable == true)
+		and (def.collision_box == nil or def.collision_box.type == "regular")
+		and (def.node_box == nil or def.node_box.type == "regular") then
+
+			local npos = minetest.find_node_near(pos, 1, "air")
+
+			if npos then
+				self.object:move_to(npos)
+			end
+
+			self.node_inside = nil -- force get_node
+
+			return
+		end
+
+		-- Switch locals to node under
+		node = self.node_under
+		def = self.def_under
+
+
+		-- Slippery node check
+		if def and def.walkable then
 
 			local slippery = core.get_item_group(node.name, "slippery")
 
-			self.slippery_state = slippery ~= 0
-		end
-	end,
+			is_slippery = slippery ~= 0
 
-	step_water_physics = function(self)
+			if is_slippery and (math.abs(vel.x) > 0.2 or math.abs(vel.z) > 0.2) then
 
-		local pos = self.object:get_pos()
-		local vel = self.object:get_velocity()
-		local node = self.node_inside
-		local def = self.def_inside
-
-		self.waterflow_state = def and def.liquidtype == "flowing"
-
-		if self.waterflow_state then
-
-			-- get flow velocity
-			local flow_vel = quick_flow(pos, node)
-
-			-- calculate flow force and drag
-			local flow_force_x = flow_vel.x * water_force
-			local flow_force_z = flow_vel.z * water_force
-
-			local flow_drag_x = (flow_force_x - vel.x) * water_drag
-			local flow_drag_z = (flow_force_z - vel.z) * water_drag
-
-			-- apply water force and friction
-			self.accel.x = self.accel.x + flow_force_x + flow_drag_x
-			self.accel.z = self.accel.z + flow_force_z + flow_drag_z
-		end
-	end,
-
-	step_air_drag_physics = function(self)
-
-		local vel = self.object:get_velocity()
-
-		-- apply air drag
-		if self.falling_state or (self.slippery_state and not self.waterflow_state) then
-			self.accel.x = self.accel.x - vel.x * air_drag
-			self.accel.z = self.accel.z - vel.z * air_drag
-		end
-	end,
-
-	step_gravity = function(self)
-
-		if self.falling_state then
-			self.accel.y = self.accel.y - gravity
-		end
-	end,
-
-	step_ground_friction = function(self)
-
-		-- don't apply ground friction when falling!
-		if self.falling_state then
-			return
-		end
-
-		local vel = self.object:get_velocity()
-
-		if self.slippery_state then
-
-			local node = self.node_under
-
-			-- apply slip factor (tiny friction that depends on the actual block type)
-			if (abs(vel.x) > 0.2 or abs(vel.z) > 0.2) then
-
-				local slippery = core.get_item_group(node.name, "slippery")
+				-- Horizontal deceleration
 				local slip_factor = 4.0 / (slippery + 4)
 
-				self.accel.x = self.accel.x - vel.x * slip_factor
-				self.accel.z = self.accel.z - vel.z * slip_factor
+				self.object:set_acceleration({
+					x = -vel.x * slip_factor,
+					y = 0,
+					z = -vel.z * slip_factor
+				})
+
+			elseif vel.y == 0 then
+				is_moving = false
 			end
+		end
 
+		if self.moving_state == is_moving
+		and self.slippery_state == is_slippery then
+			return -- No further updates until moving state changes
+		end
+
+		self.moving_state = is_moving
+		self.slippery_state = is_slippery
+
+		local a_curr = self.object:get_acceleration()
+		local v_curr = self.object:get_velocity()
+
+		if is_moving then
+
+			self.object:set_acceleration({
+				x = a_curr.x,
+				y = a_curr.y - gravity,
+				z = a_curr.z
+			})
 		else
-			self.accel.x = self.accel.x - vel.x * dry_friction
-			self.accel.z = self.accel.z - vel.z * dry_friction
-		end
-	end,
+			self.object:set_acceleration({x = 0, y = 0, z = 0})
 
-	step_apply_forces = function(self)
-		self.object:set_acceleration(self.accel)
-	end,
-
-	step_check_timeout = function(self, dtime)
-
-		local pos = self.object:get_pos()
-
-		self.age = self.age + dtime
-
-		if time_to_live > 0 and self.age > time_to_live then
-
-			self.itemstring = ""
-			self.object:remove()
-
-			add_effects(pos)
-
-			return true
+			-- preserve *some* velocity so items don't get stuck on the very ledges
+			-- of nodes once they move just enough to leave the hitbox of flowing water
+			self.object:set_velocity({
+				x = v_curr.x / dry_friction,
+				y = v_curr.y / dry_friction,
+				z = v_curr.z / dry_friction
+			})
 		end
 
-		return false
-	end,
-
-	step_check_custom_step = function(self, dtime, moveresult)
-
-		local pos = self.object:get_pos()
-
-		-- do custom step function
-		local name = ItemStack(self.itemstring):get_name() or ""
-		local custom = core.registered_items[name]
-			and core.registered_items[name].dropped_step
-
-		if custom and custom(self, pos, dtime, moveresult) == false then
-			return true -- skip further checks if false
-		end
-
-		return false
-	end,
-
-	step_try_collect = function(self)
-
-		local self_pos = self.object:get_pos()
-
-		-- Don't collect items if falling
-		if self.falling_state then
-			return
-		end
-
-		-- Check if we should collect items while sliding
-		if self.slippery_state and not items_collect_on_slippery then
+		--Only collect items if not moving
+		if is_moving then
 			return
 		end
 
@@ -551,18 +501,15 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
-		local objects = core.get_objects_inside_radius(self_pos, 1.0)
+		local objects = core.get_objects_inside_radius(pos, 1.0)
 
-		for _, obj in pairs(objects) do
+		for k, obj in pairs(objects) do
 
 			local entity = obj:get_luaentity()
 
-			if entity and entity.name == "__builtin:item" and not entity.is_falling then
+			if entity and entity.name == "__builtin:item" then
 
 				if self:try_merge_with(own_stack, obj, entity) then
-
-					-- item will be moved up due to try_merge_with
-					self.falling_state = true
 
 					own_stack = ItemStack(self.itemstring)
 
@@ -572,41 +519,6 @@ core.register_entity(":__builtin:item", {
 				end
 			end
 		end
-	end,
-
-	on_step = function(self, dtime, moveresult)
-
-		-- reset acceleration
-		self.accel = {x = 0, y = 0, z = 0}
-
-		-- check item timeout
-		if self:step_check_timeout(dtime) then
-			return -- deleted, stop here
-		end
-
-		-- check custom step function
-		if self:step_check_custom_step(dtime, moveresult) then
-			return -- overriden
-		end
-
-		-- do general checks
-		self:step_update_node_state(moveresult, dtime)
-
-		if self:step_node_inside_checks() then
-			return -- destroyed
-		end
-
-		self:step_check_slippery()
-
-		-- do physics checks, then apply
-		self:step_water_physics()
-		self:step_ground_friction()
-		self:step_gravity()
-
-		self:step_apply_forces()
-
-		-- do item checks
-		self:step_try_collect()
 	end,
 
 	on_punch = function(self, hitter)
