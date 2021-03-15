@@ -327,7 +327,7 @@ core.register_entity(":__builtin:item", {
 			self.node_under = nil
 			self.falling_state = true
 
-			if moveresult.touching_ground then
+			if moveresult and moveresult.touching_ground then
 
 				for _, info in ipairs(moveresult.collisions) do
 
