@@ -2,11 +2,10 @@
 
 function core.spawn_item(pos, item)
 
-	local stack = ItemStack(item)
 	local obj = core.add_entity(pos, "__builtin:item")
 
 	if obj then
-		obj:get_luaentity():set_item(stack:to_string())
+		obj:get_luaentity():set_item(ItemStack(item):to_string())
 	end
 
 	return obj
@@ -100,7 +99,7 @@ end
 
 local function quick_flow(pos, node)
 
-	local x, z = 0.0, 0.0
+	local x, z = 0, 0
 
 	x = x + quick_flow_logic(node, {x = pos.x - 1, y = pos.y, z = pos.z},-1)
 	x = x + quick_flow_logic(node, {x = pos.x + 1, y = pos.y, z = pos.z}, 1)
@@ -335,17 +334,17 @@ core.register_entity(":__builtin:item", {
 	step_node_inside_checks = function(self)
 
 		local pos = self.object:get_pos()
-		local node = self.node_inside
-		local def = self.def_inside
 
 		-- Delete in 'ignore' nodes
-		if node and node.name == "ignore" then
+		if self.node_inside and self.node_inside.name == "ignore" then
 
 			self.itemstring = ""
 			self.object:remove()
 
 			return true
 		end
+
+		local def = self.def_inside
 
 		-- item inside block, move to vacant space
 		if def and (def.walkable == nil or def.walkable == true)
@@ -385,19 +384,16 @@ core.register_entity(":__builtin:item", {
 
 		-- don't check for slippery ground if we're not on
 		-- any ground to begin with
-		local node = self.node_under
-		local def = self.def_under
-
-		if self.falling_state or not node then
+		if self.falling_state or not self.node_under then
 
 			self.slippery_state = false
 
 			return
 		end
 
-		if node and def and def.walkable then
+		if self.node_under and self.def_under and self.def_under.walkable then
 
-			local slippery = core.get_item_group(node.name, "slippery")
+			local slippery = core.get_item_group(self.node_under.name, "slippery")
 
 			self.slippery_state = slippery ~= 0
 		end
@@ -405,17 +401,16 @@ core.register_entity(":__builtin:item", {
 
 	step_water_physics = function(self)
 
-		local pos = self.object:get_pos()
-		local vel = self.object:get_velocity()
-		local node = self.node_inside
-		local def = self.def_inside
-
-		self.waterflow_state = def and def.liquidtype == "flowing"
+		self.waterflow_state = self.def_inside and
+				self.def_inside.liquidtype == "flowing"
 
 		if self.waterflow_state then
 
+			local pos = self.object:get_pos()
+			local vel = self.object:get_velocity()
+
 			-- get flow velocity
-			local flow_vel = quick_flow(pos, node)
+			local flow_vel = quick_flow(pos, self.node_inside)
 
 			-- calculate flow force and drag
 			local flow_force_x = flow_vel.x * water_force
@@ -470,16 +465,14 @@ core.register_entity(":__builtin:item", {
 
 	step_check_timeout = function(self, dtime)
 
-		local pos = self.object:get_pos()
-
 		self.age = self.age + dtime
 
 		if time_to_live > 0 and self.age > time_to_live then
 
+			add_effects(self.object:get_pos())
+
 			self.itemstring = ""
 			self.object:remove()
-
-			add_effects(pos)
 
 			return true
 		end
@@ -489,14 +482,13 @@ core.register_entity(":__builtin:item", {
 
 	step_check_custom_step = function(self, dtime, moveresult)
 
-		local pos = self.object:get_pos()
-
 		-- do custom step function
 		local name = ItemStack(self.itemstring):get_name() or ""
 		local custom = core.registered_items[name]
 			and core.registered_items[name].dropped_step
 
-		if custom and custom(self, pos, dtime, moveresult) == false then
+		if custom
+		and custom(self, self.object:get_pos(), dtime, moveresult) == false then
 			return true -- skip further checks if false
 		end
 
@@ -504,8 +496,6 @@ core.register_entity(":__builtin:item", {
 	end,
 
 	step_try_collect = function(self)
-
-		local self_pos = self.object:get_pos()
 
 		-- Don't collect items if falling
 		if self.falling_state then
@@ -524,6 +514,7 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
+		local self_pos = self.object:get_pos()
 		local objects = core.get_objects_inside_radius(self_pos, 1.0)
 
 		for _, obj in pairs(objects) do
@@ -552,7 +543,8 @@ core.register_entity(":__builtin:item", {
 		local vel = self.object:get_velocity()
 
 		-- apply air drag
-		if self.falling_state or (self.slippery_state and not self.waterflow_state) then
+		if self.falling_state
+		or (self.slippery_state and not self.waterflow_state) then
 			self.accel.x = self.accel.x - vel.x * air_drag
 			self.accel.z = self.accel.z - vel.z * air_drag
 		end
