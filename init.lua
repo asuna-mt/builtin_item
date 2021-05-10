@@ -1,12 +1,5 @@
 -- Minetest: builtin/item_entity.lua
 
--- override ice to make slippery for 0.4.16
-if not minetest.raycast then
-	minetest.override_item("default:ice", {
-		groups = {cracky = 3, puts_out_fire = 1, cools_lava = 1, slippery = 3}})
-end
-
-
 function core.spawn_item(pos, item)
 
 	local stack = ItemStack(item)
@@ -20,7 +13,7 @@ function core.spawn_item(pos, item)
 end
 
 
--- If item_entity_ttl is not set, enity will have default life time
+-- If item_entity_ttl is not set, entity will have default life time
 -- Setting it to -1 disables the feature
 local time_to_live = tonumber(core.settings:get("item_entity_ttl")) or 900
 local gravity = tonumber(core.settings:get("movement_gravity")) or 9.81
@@ -78,8 +71,7 @@ local function quick_flow_logic(node, pos_testing, direction)
 		param2 = 0
 	end
 
-	if minetest.registered_nodes[node_testing.name].liquidtype ~= "flowing"
-	and minetest.registered_nodes[node_testing.name].liquidtype ~= "source" then
+	if minetest.registered_nodes[node_testing.name].liquidtype ~= "flowing" then
 		return 0
 	end
 
@@ -135,19 +127,14 @@ local function add_effects(pos)
 		maxexptime = 3,
 		minsize = 1,
 		maxsize = 4,
-		texture = "tnt_smoke.png",
+		texture = "tnt_smoke.png"
 	})
-end
-
--- print vector, helpful when debugging
-local function vec_print(head, vec)
-	print(head, vec.x, vec.y, vec.z)
 end
 
 
 local water_force = tonumber(minetest.settings:get("builtin_item.waterflow_force") or 1.6)
 local water_drag = tonumber(minetest.settings:get("builtin_item.waterflow_drag") or 0.8)
-local dry_friction = tonumber(minetest.settings:get("builtin_item.friction_dry") or 2.5)
+local dry_friction = tonumber(minetest.settings:get("builtin_item.friction_dry") or 2.6)
 local air_drag = tonumber(minetest.settings:get("builtin_item.air_drag") or 0.4)
 local items_collect_on_slippery = tonumber(
 		minetest.settings:get("builtin_item.items_collect_on_slippery") or 1) ~= 0
@@ -194,7 +181,7 @@ core.register_entity(":__builtin:item", {
 		local col_height = size * 0.75
 		local def = core.registered_nodes[itemname]
 		local glow = def and def.light_source
-		local c1, c2 = "",""
+		local c1, c2 = "", ""
 
 		if not(stack:get_count() == 1) then
 			c1 = " x" .. tostring(stack:get_count())
@@ -225,23 +212,20 @@ core.register_entity(":__builtin:item", {
 			glow = glow,
 			infotext = name .. c1 .. "\n(" .. itemname .. c2 .. ")"
 		})
-
 	end,
 
 	get_staticdata = function(self)
 
-		local data = {
+		return core.serialize({
 			itemstring = self.itemstring,
 			age = self.age,
 			dropped_by = self.dropped_by
-		}
-
-		return core.serialize(data)
+		})
 	end,
 
 	on_activate = function(self, staticdata, dtime_s)
 
-		if string.sub(staticdata, 1, string.len("return")) == "return" then
+		if string.sub(staticdata, 1, 6) == "return" then
 
 			local data = core.deserialize(staticdata)
 
@@ -384,7 +368,7 @@ core.register_entity(":__builtin:item", {
 				pos = pos,
 				max_hear_distance = 6,
 				gain = 0.5
-			})
+			}, true)
 
 			self.itemstring = ""
 			self.object:remove()
@@ -405,7 +389,9 @@ core.register_entity(":__builtin:item", {
 		local def = self.def_under
 
 		if self.falling_state or not node then
+
 			self.slippery_state = false
+
 			return
 		end
 
@@ -444,17 +430,6 @@ core.register_entity(":__builtin:item", {
 		end
 	end,
 
-	step_air_drag_physics = function(self)
-
-		local vel = self.object:get_velocity()
-
-		-- apply air drag
-		if self.falling_state or (self.slippery_state and not self.waterflow_state) then
-			self.accel.x = self.accel.x - vel.x * air_drag
-			self.accel.z = self.accel.z - vel.z * air_drag
-		end
-	end,
-
 	step_gravity = function(self)
 
 		if self.falling_state then
@@ -473,12 +448,10 @@ core.register_entity(":__builtin:item", {
 
 		if self.slippery_state then
 
-			local node = self.node_under
-
 			-- apply slip factor (tiny friction that depends on the actual block type)
-			if (abs(vel.x) > 0.2 or abs(vel.z) > 0.2) then
+			if abs(vel.x) > 0.2 or abs(vel.z) > 0.2 then
 
-				local slippery = core.get_item_group(node.name, "slippery")
+				local slippery = core.get_item_group(self.node_under.name, "slippery")
 				local slip_factor = 4.0 / (slippery + 4)
 
 				self.accel.x = self.accel.x - vel.x * slip_factor
@@ -618,12 +591,14 @@ core.register_entity(":__builtin:item", {
 			local left = inv:add_item("main", self.itemstring)
 
 			if left and not left:is_empty() then
+
 				self:set_item(left)
+
 				return
 			end
 		end
 
 		self.itemstring = ""
 		self.object:remove()
-	end,
+	end
 })
