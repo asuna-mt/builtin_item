@@ -547,6 +547,17 @@ core.register_entity(":__builtin:item", {
 		end
 	end,
 
+	step_air_drag_physics = function(self)
+
+		local vel = self.object:get_velocity()
+
+		-- apply air drag
+		if self.falling_state or (self.slippery_state and not self.waterflow_state) then
+			self.accel.x = self.accel.x - vel.x * air_drag
+			self.accel.z = self.accel.z - vel.z * air_drag
+		end
+	end,
+
 	on_step = function(self, dtime, moveresult)
 
 		-- reset acceleration
@@ -575,7 +586,7 @@ core.register_entity(":__builtin:item", {
 		self:step_water_physics()
 		self:step_ground_friction()
 		self:step_gravity()
-
+		self:step_air_drag_physics()
 		self:step_apply_forces()
 
 		-- do item checks
