@@ -271,7 +271,7 @@ core.register_entity(":__builtin:item", {
 		pos.y = pos.y + ((total_count - count) / max_count) * 0.15
 
 		self.object:move_to(pos)
-		self.age = 0 -- Handle as new entity
+		self.age = 0 -- Reset age
 
 		-- Merge velocities
 		local vel_a = self.object:get_velocity()
@@ -300,35 +300,49 @@ core.register_entity(":__builtin:item", {
 		-- get nodes every 1/4 second
 		self.timer = (self.timer or 0) + dtime
 
-		if self.timer > 0.25 or not self.node_inside then
+		if self.timer < 0.25 and self.node_inside then
+			return
+		end
 
-			self.node_inside = minetest.get_node_or_nil(pos)
-			self.def_inside = self.node_inside
-					and core.registered_nodes[self.node_inside.name]
+		self.node_inside = minetest.get_node_or_nil(pos)
+		self.def_inside = self.node_inside
+				and core.registered_nodes[self.node_inside.name]
 
-			-- get ground node for collision
-			self.node_under = nil
-			self.falling_state = true
+		-- get ground node for collision
+		self.node_under = nil
+		self.falling_state = true
 
-			if moveresult and moveresult.touching_ground then
+		--[[ new ground check (glitchy)
+		if moveresult and moveresult.touching_ground then
 
-				for _, info in ipairs(moveresult.collisions) do
+			for _, info in ipairs(moveresult.collisions) do
 
-					if info.axis == "y" then
+				if info.axis == "y" then
 
-						self.node_under = core.get_node(info.node_pos)
-						self.falling_state = false
+					self.node_under = core.get_node_or_nil(info.node_pos)
+					self.falling_state = false
 
-						break
-					end
+					break
 				end
 			end
+		end]]
 
-			self.def_under = self.node_under
-				and core.registered_nodes[self.node_under.name]
+		-- old ground check (stable)
+		self.node_under = minetest.get_node_or_nil({
+			x = pos.x,
+			y = pos.y + self.object:get_properties().collisionbox[2] - 0.05,
+			z = pos.z
+		})
 
-			self.timer = 0
+		self.def_under = self.node_under
+			and core.registered_nodes[self.node_under.name]
+
+		-- part of old ground check
+		if self.def_under.walkable then
+			self.falling_state = false
 		end
+
+		self.timer = 0
 	end,
 
 	step_node_inside_checks = function(self)
@@ -336,7 +350,8 @@ core.register_entity(":__builtin:item", {
 		local pos = self.object:get_pos()
 
 		-- Delete in 'ignore' nodes
-		if self.node_inside and self.node_inside.name == "ignore" then
+		if (self.node_inside and self.node_inside.name == "ignore")
+		or self.itemstring == "" then
 
 			self.itemstring = ""
 			self.object:remove()
@@ -382,8 +397,7 @@ core.register_entity(":__builtin:item", {
 
 	step_check_slippery = function(self)
 
-		-- don't check for slippery ground if we're not on
-		-- any ground to begin with
+		-- don't check for slippery if we're not on the ground
 		if self.falling_state or not self.node_under then
 
 			self.slippery_state = false
@@ -440,6 +454,21 @@ core.register_entity(":__builtin:item", {
 		end
 
 		local vel = self.object:get_velocity()
+
+		-- this stops the entity drift glitch by re-setting entity pos when not moving
+		if vel.x == 0 and vel.y == 0 and vel.z == 0 then
+
+			if self.is_moving == true then
+
+				self.is_moving = false
+
+				local pos = self.object:get_pos()
+
+				self.object:set_pos(pos)
+			end
+		else
+			self.is_moving = true
+		end
 
 		if self.slippery_state then
 
@@ -572,17 +601,16 @@ core.register_entity(":__builtin:item", {
 			return -- destroyed
 		end
 
-		self:step_check_slippery()
-
 		-- do physics checks, then apply
 		self:step_water_physics()
+		self:step_check_slippery()
 		self:step_ground_friction()
-		self:step_gravity()
 		self:step_air_drag_physics()
+		self:step_gravity()
+
 		self:step_apply_forces()
 
-		-- do item checks
-		self:step_try_collect()
+		self:step_try_collect() -- merge
 	end,
 
 	on_punch = function(self, hitter)

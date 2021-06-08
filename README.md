@@ -10,15 +10,17 @@ Features:
 - Particle effects added
 - Dropped items slide on nodes with {slippery} groups
 - Items stuck inside solid nodes move to nearest empty space
-- Added 'dropped_step(self, pos, dtime)' custom on_step for dropped items
+- Added 'dropped_step(self, pos, dtime, moveresult)' custom on_step for dropped items
    'self.node_inside' contains node table that item is inside
    'self.def_inside' contains node definition for above
    'self.node_under' contains node table that is below item
    'self.def_under' contains node definition for above
    'self.age' holds age of dropped item in seconds
    'self.itemstring' contains itemstring e.g. "default:dirt", "default:ice 20"
+   'self.is_moving' true if dropped item is moving
    'pos' holds position of dropped item
    'dtime' used for timers
+   'moveresult' table containing collision info
 
    return false to skip further checks by builtin_item
 
