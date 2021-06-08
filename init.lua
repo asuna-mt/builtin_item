@@ -338,7 +338,7 @@ core.register_entity(":__builtin:item", {
 			and core.registered_nodes[self.node_under.name]
 
 		-- part of old ground check
-		if self.def_under.walkable then
+		if self.def_under and self.def_under.walkable then
 			self.falling_state = false
 		end
 
