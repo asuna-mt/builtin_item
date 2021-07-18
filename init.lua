@@ -441,7 +441,10 @@ core.register_entity(":__builtin:item", {
 
 	step_gravity = function(self)
 
-		if self.falling_state then
+		local vel = self.object:get_velocity()
+
+		-- apply gravity if falling or Y velocity not 0 (just incase)
+		if self.falling_state or (vel and vel.y ~= 0) then
 			self.accel.y = self.accel.y - gravity
 		end
 	end,
