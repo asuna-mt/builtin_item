@@ -24,7 +24,7 @@ Features:
 
    return false to skip further checks by builtin_item
 
-License: MIT
+License: LGPLv2.1+
 
 
 dropped_step() examples:
