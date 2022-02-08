@@ -473,6 +473,8 @@ core.register_entity(":__builtin:item", {
 			self.is_moving = true
 		end
 
+		local this_dry_friction = dry_friction
+
 		if self.slippery_state then
 
 			-- apply slip factor (tiny friction that depends on the actual block type)
@@ -481,20 +483,19 @@ core.register_entity(":__builtin:item", {
 				local slippery = core.get_item_group(self.node_under.name, "slippery")
 				local slip_factor = 4.0 / (slippery + 4)
 
-				self.accel.x = self.accel.x - vel.x * slip_factor
-				self.accel.z = self.accel.z - vel.z * slip_factor
+				this_dry_friction = slip_factor
 			end
-
-		else
-			self.accel.x = self.accel.x - vel.x * dry_friction
-			self.accel.z = self.accel.z - vel.z * dry_friction
 		end
+
+		self.accel.x = self.accel.x - vel.x * this_dry_friction
+		self.accel.z = self.accel.z - vel.z * this_dry_friction
 	end,
 
 	step_apply_forces = function(self)
 		self.object:set_acceleration(self.accel)
 	end,
 
+	-- let items die out after enough time
 	step_check_timeout = function(self, dtime)
 
 		self.age = self.age + dtime
