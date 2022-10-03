@@ -617,23 +617,55 @@ core.register_entity(":__builtin:item", {
 		self:step_try_collect() -- merge
 	end,
 
-	on_punch = function(self, hitter)
+	on_punch = function(self, hitter, ...)
 
-		local inv = hitter:get_inventory()
+		if self.itemstring == "" then
 
-		if inv and self.itemstring ~= "" then
+			self.object:remove()
 
-			local left = inv:add_item("main", self.itemstring)
-
-			if left and not left:is_empty() then
-
-				self:set_item(left)
-
-				return
-			end
+			return
 		end
 
-		self.itemstring = ""
-		self.object:remove()
+		if core.item_pickup then
+
+			-- Call on_pickup callback in item definition.
+			local itemstack = ItemStack(self.itemstring)
+			local callback = itemstack:get_definition().on_pickup
+			local ret = callback(itemstack, hitter,
+					{type = "object", ref = self.object}, ...)
+
+			if not ret then
+				-- Don't modify (and don't reset rotation)
+				return
+			end
+
+			itemstack = ItemStack(ret)
+
+			-- Handle the leftover itemstack
+			if itemstack:is_empty() then
+				self.itemstring = ""
+				self.object:remove()
+			else
+				self:set_item(itemstack)
+			end
+		else
+			-- old method of pickup for backwards compatibility
+			local inv = hitter:get_inventory()
+
+			if inv then
+
+				local left = inv:add_item("main", self.itemstring)
+
+				if left and not left:is_empty() then
+
+					self:set_item(left)
+
+					return
+				end
+			end
+
+			self.itemstring = ""
+			self.object:remove()
+		end
 	end
 })

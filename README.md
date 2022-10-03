@@ -10,6 +10,7 @@ Features:
 - Particle effects added
 - Dropped items slide on nodes with {slippery} groups
 - Items stuck inside solid nodes move to nearest empty space
+- Can use new on_pickup() function if available
 - Added 'dropped_step(self, pos, dtime, moveresult)' custom on_step for dropped items
    'self.node_inside' contains node table that item is inside
    'self.def_inside' contains node definition for above
