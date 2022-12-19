@@ -669,3 +669,6 @@ core.register_entity(":__builtin:item", {
 		end
 	end
 })
+
+
+print("[MOD] Built-in Item loaded")
