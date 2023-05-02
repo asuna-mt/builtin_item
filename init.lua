@@ -267,10 +267,12 @@ core.register_entity(":__builtin:item", {
 
 		-- Merge the remote stack into this one
 		local pos = object:get_pos()
+		local self_pos = self.object:get_pos()
+		local x_diff = (self_pos.x - pos.x) / 2
+		local z_diff = (self_pos.z - pos.z) / 2
+		local new_pos = vector.offset(pos, x_diff, 0, z_diff)
 
-		pos.y = pos.y + ((total_count - count) / max_count) * 0.15
-
-		self.object:move_to(pos)
+		self.object:move_to(new_pos)
 		self.age = 0 -- Reset age
 
 		-- Merge velocities
@@ -335,7 +337,7 @@ core.register_entity(":__builtin:item", {
 		})
 
 		self.def_under = self.node_under
-			and core.registered_nodes[self.node_under.name]
+				and core.registered_nodes[self.node_under.name]
 
 		-- part of old ground check
 		if self.def_under and self.def_under.walkable then
@@ -576,8 +578,7 @@ core.register_entity(":__builtin:item", {
 		local vel = self.object:get_velocity()
 
 		-- apply air drag
-		if self.falling_state
-		or (self.slippery_state and not self.waterflow_state) then
+		if self.falling_state or (self.slippery_state and not self.waterflow_state) then
 			self.accel.x = self.accel.x - vel.x * air_drag
 			self.accel.z = self.accel.z - vel.z * air_drag
 		end
