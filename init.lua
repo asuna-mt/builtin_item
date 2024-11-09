@@ -17,6 +17,7 @@ end
 local time_to_live = tonumber(core.settings:get("item_entity_ttl")) or 900
 local gravity = tonumber(core.settings:get("movement_gravity")) or 9.81
 local destroy_item = core.settings:get_bool("destroy_item") ~= false
+local source_flow = core.settings:get_bool("builtin_item.source_flow")
 
 
 -- localize some math functions
@@ -418,7 +419,8 @@ core.register_entity(":__builtin:item", {
 	step_water_physics = function(self)
 
 		self.waterflow_state = self.def_inside and
-				self.def_inside.liquidtype == "flowing"
+				(self.def_inside.liquidtype == "flowing" or (source_flow and
+				self.def_inside.liquidtype == "source"))
 
 		if self.waterflow_state then
 
