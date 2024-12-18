@@ -21,8 +21,8 @@ local source_flow = core.settings:get_bool("builtin_item.source_flow")
 
 
 -- localize some math functions
-local abs = math.abs
-local sqrt = math.sqrt
+local math_abs, math_sqrt = math.abs, math.sqrt
+local math_random, math_min = math.random, math.min
 
 
 -- water flow functions by QwertyMine3, edited by TenPlus1 and Gustavo6046
@@ -38,7 +38,7 @@ local function to_unit_vector(dir_vector)
 		invr_sum = inv_roots[sum]
 	else
 		-- not found, compute and save the inverse square root
-		invr_sum = 1.0 / sqrt(sum)
+		invr_sum = 1.0 / math_sqrt(sum)
 		inv_roots[sum] = invr_sum
 	end
 
@@ -176,7 +176,7 @@ core.register_entity(":__builtin:item", {
 
 		local itemname = stack:is_known() and stack:get_name() or "unknown"
 		local max_count = stack:get_stack_max()
-		local count = math.min(stack:get_count(), max_count)
+		local count = math_min(stack:get_count(), max_count)
 		local size = 0.2 + 0.1 * (count / max_count) ^ (1 / 3)
 		local col_height = size * 0.75
 		local def = core.registered_nodes[itemname]
@@ -198,7 +198,7 @@ core.register_entity(":__builtin:item", {
 		end
 
 		-- small random size bias to counter Z-fighting
-		local bias = math.random() * 1e-3
+		local bias = math_random() * 1e-3
 
 		self.object:set_properties({
 			is_visible = true,
@@ -307,6 +307,8 @@ core.register_entity(":__builtin:item", {
 			return
 		end
 
+		self.timer = 0
+
 		self.node_inside = minetest.get_node_or_nil(pos)
 		self.def_inside = self.node_inside
 				and core.registered_nodes[self.node_inside.name]
@@ -344,8 +346,6 @@ core.register_entity(":__builtin:item", {
 		if self.def_under and self.def_under.walkable then
 			self.falling_state = false
 		end
-
-		self.timer = 0
 	end,
 
 	step_node_inside_checks = function(self)
@@ -482,7 +482,7 @@ core.register_entity(":__builtin:item", {
 		if self.slippery_state then
 
 			-- apply slip factor (tiny friction that depends on the actual block type)
-			if abs(vel.x) > 0.2 or abs(vel.z) > 0.2 then
+			if math_abs(vel.x) > 0.2 or math_abs(vel.z) > 0.2 then
 
 				local slippery = core.get_item_group(self.node_under.name, "slippery")
 				local slip_factor = 4.0 / (slippery + 4)
