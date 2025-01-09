@@ -38,3 +38,7 @@ air_drag (Horizontal drag of air on falling items) float 0.4
 # type. By default they can do this even on a slippery floor, like
 # ice, but this setting allows disabling that.
 builtin_item.items_collect_on_slippery (Collect items on slippery ground) bool true
+
+# Allow dropped items to be pushed when inside of source nodes,
+# False by default but can be enabled.
+builtin_item.source_flow (Allow water source to push items) bool false
