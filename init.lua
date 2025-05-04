@@ -52,13 +52,13 @@ end
 
 local function node_ok(pos)
 
-	local node = minetest.get_node_or_nil(pos)
+	local node = core.get_node_or_nil(pos)
 
-	if node and minetest.registered_nodes[node.name] then
+	if node and core.registered_nodes[node.name] then
 		return node
 	end
 
-	return minetest.registered_nodes["default:dirt"]
+	return core.registered_nodes["default:dirt"]
 end
 
 
@@ -67,11 +67,11 @@ local function quick_flow_logic(node, pos_testing, direction)
 	local node_testing = node_ok(pos_testing)
 	local param2 = node.param2
 
-	if not minetest.registered_nodes[node.name].groups.liquid then
+	if not core.registered_nodes[node.name].groups.liquid then
 		param2 = 0
 	end
 
-	if minetest.registered_nodes[node_testing.name].liquidtype ~= "flowing" then
+	if core.registered_nodes[node_testing.name].liquidtype ~= "flowing" then
 		return 0
 	end
 
@@ -114,7 +114,7 @@ end
 -- particle effects for when item is destroyed
 local function add_effects(pos)
 
-	minetest.add_particlespawner({
+	core.add_particlespawner({
 		amount = 1,
 		time = 0.25,
 		minpos = pos,
@@ -132,12 +132,12 @@ local function add_effects(pos)
 end
 
 
-local water_force = tonumber(minetest.settings:get("builtin_item.waterflow_force") or 1.6)
-local water_drag = tonumber(minetest.settings:get("builtin_item.waterflow_drag") or 0.8)
-local dry_friction = tonumber(minetest.settings:get("builtin_item.friction_dry") or 2.6)
-local air_drag = tonumber(minetest.settings:get("builtin_item.air_drag") or 0.4)
+local water_force = tonumber(core.settings:get("builtin_item.waterflow_force") or 1.6)
+local water_drag = tonumber(core.settings:get("builtin_item.waterflow_drag") or 0.8)
+local dry_friction = tonumber(core.settings:get("builtin_item.friction_dry") or 2.6)
+local air_drag = tonumber(core.settings:get("builtin_item.air_drag") or 0.4)
 local items_collect_on_slippery = tonumber(
-		minetest.settings:get("builtin_item.items_collect_on_slippery") or 1) ~= 0
+		core.settings:get("builtin_item.items_collect_on_slippery") or 1) ~= 0
 
 
 core.register_entity(":__builtin:item", {
@@ -309,7 +309,7 @@ core.register_entity(":__builtin:item", {
 
 		self.timer = 0
 
-		self.node_inside = minetest.get_node_or_nil(pos)
+		self.node_inside = core.get_node_or_nil(pos)
 		self.def_inside = self.node_inside
 				and core.registered_nodes[self.node_inside.name]
 
@@ -333,7 +333,7 @@ core.register_entity(":__builtin:item", {
 		end]]
 
 		-- old ground check (stable)
-		self.node_under = minetest.get_node_or_nil({
+		self.node_under = core.get_node_or_nil({
 			x = pos.x,
 			y = pos.y + self.object:get_properties().collisionbox[2] - 0.05,
 			z = pos.z
@@ -369,7 +369,7 @@ core.register_entity(":__builtin:item", {
 		and (def.collision_box == nil or def.collision_box.type == "regular")
 		and (def.node_box == nil or def.node_box.type == "regular") then
 
-			local npos = minetest.find_node_near(pos, 1, "air")
+			local npos = core.find_node_near(pos, 1, "air")
 
 			if npos then
 				self.object:move_to(npos)
@@ -381,7 +381,7 @@ core.register_entity(":__builtin:item", {
 		-- destroy item when dropped into lava (if enabled)
 		if destroy_item and def and def.groups and def.groups.lava then
 
-			minetest.sound_play("builtin_item_lava", {
+			core.sound_play("builtin_item_lava", {
 				pos = pos,
 				max_hear_distance = 6,
 				gain = 0.5
